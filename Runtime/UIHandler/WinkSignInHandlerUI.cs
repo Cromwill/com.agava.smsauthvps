@@ -29,6 +29,8 @@ namespace Agava.Wink
         [SerializeField] private UnlinkDeviceViewContainer _unlinkDeviceViewContainer;
         [Header("Placeholders")]
         [SerializeField] private TextPlaceholder[] _phoneNumberPlaceholders;
+        [Header("WebView")]
+        [SerializeField] private WebViewPresenter _webViewPresenter;
 
         private SignInFuctionsUI _signInFuctionsUI;
         private WinkAccessManager _winkAccessManager;
@@ -81,6 +83,7 @@ namespace Agava.Wink
             _notifyWindowHandler.CloseWindow(WindowType.NoEnternet);
 
             yield return new WaitUntil(() => _notifyWindowHandler.EnterCodeWindowInitialized);
+            yield return new WaitUntil(() => _webViewPresenter.Initialized);
         }
 
         public void OpenProcessOnWindow()
@@ -230,9 +233,8 @@ namespace Agava.Wink
             if (hasAccess)
             {
                 SetPhone();
-                AnalyticsWinkService.SendHelloWindow();
-                _notifyWindowHandler.OpenWindow(WindowType.Hello);
                 _notifyWindowHandler.CloseWindow(WindowType.Redirect);
+                _notifyWindowHandler.OpenHelloWindow(hasAccess);
             }
         }
 

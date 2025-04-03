@@ -1,6 +1,6 @@
-using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
 
 namespace Agava.Wink
 {
@@ -11,6 +11,7 @@ namespace Agava.Wink
         [SerializeField] private WebView _webViewPrefab;
 
         private static WebViewPresenter instance;
+        private static IWebViewLoader _webViewLoader;
 
         private WebView _webView;
 
@@ -29,6 +30,11 @@ namespace Agava.Wink
 
             Disable();
             StartCoroutine(Initialize());
+        }
+
+        public void Construct(IWebViewLoader webViewLoader)
+        {
+            _webViewLoader = webViewLoader;
         }
 
         private void OnEnable()
@@ -79,7 +85,7 @@ namespace Agava.Wink
             }
 
             instance.Enable();
-            instance._webView.OpenURL(url);
+            instance._webView.OpenURL(url, _webViewLoader);
 #endif
         }
 
@@ -95,7 +101,7 @@ namespace Agava.Wink
             instance.Disable();
         }
 
-        private static void OpenURL(string url)
+        public static void OpenURL(string url)
         {
             Application.OpenURL(url);
         }

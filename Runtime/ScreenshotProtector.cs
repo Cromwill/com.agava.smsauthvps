@@ -1,39 +1,63 @@
+using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Scripting;
 
 namespace Agava.Wink
 {
     [Preserve]
-    public static class ScreenshotProtector
+    public class ScreenshotProtector
     {
-        public static bool Locked { get; private set; } = false;
+        private bool _screenshotsDisabled = false;
 
-        public static void DisableScreenshots()
+#if UNITY_IOS && !UNITY_EDITOR
+ [DllImport("__Internal")]
+    private static extern void disableScreenshots();
+
+    [DllImport("__Internal")]
+    private static extern void enableScreenshots();
+#endif
+
+
+        public void TryDisableScreenshots()
         {
-            if(Locked == false)
-                SetSecureFlag(true);
+            if (_screenshotsDisabled)
+                return;
+
+            _screenshotsDisabled = true;
+
+#if UNITY_EDITOR
+            Debug.Log("SCREEN PROTECTOR: disable screenshots possibility!");
+#elif UNITY_EDITOR == false && UNITY_ANDROID
+            using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+            {
+                AndroidJavaObject currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+                AndroidJavaObject myActivityHelper = new AndroidJavaObject("com.kindzadza.screenprotect.ScreenshotProtect");
+                myActivityHelper.CallStatic("SetSecureFlag", currentActivity);
+            }
+#elif UNITY_IOS
+            disableScreenshots();
+#endif
         }
 
-        public static void EnableScreenshots()
+        public void TryEnableScreenshots()
         {
-            if (Locked)
-                SetSecureFlag(false);
-        }
+            if (_screenshotsDisabled == false)
+                return;
 
-        private static void SetSecureFlag(bool protectScreen)
-        {
-            Locked = protectScreen;
-            AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
-            AndroidJavaObject activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
-            AndroidJavaObject window = activity.Call<AndroidJavaObject>("getWindow");
+            _screenshotsDisabled = false;
 
-            AndroidJavaClass layoutParamsClass = new AndroidJavaClass("android.view.WindowManager$LayoutParams");
-            int flagSecure = layoutParamsClass.GetStatic<int>("FLAG_SECURE");
-
-            if (protectScreen)
-                window.Call("setFlags", flagSecure, flagSecure);
-            else
-                window.Call("clearFlags", flagSecure);
+#if UNITY_EDITOR
+            Debug.Log("SCREEN PROTECTOR: enable screenshots possibility!");
+#elif UNITY_EDITOR == false && UNITY_ANDROID
+            using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+            {
+                AndroidJavaObject currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+                AndroidJavaObject myActivityHelper = new AndroidJavaObject("com.kindzadza.screenprotect.ScreenshotProtect");
+                myActivityHelper.CallStatic("ClearSecureFlag", currentActivity);
+            }
+#elif UNITY_IOS
+    enableScreenshots();
+#endif
         }
     }
 }

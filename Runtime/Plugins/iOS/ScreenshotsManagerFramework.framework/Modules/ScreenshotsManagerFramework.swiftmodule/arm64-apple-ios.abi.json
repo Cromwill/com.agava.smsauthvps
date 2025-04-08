@@ -1,0 +1,177 @@
+{
+  "ABIRoot": {
+    "kind": "Root",
+    "name": "ScreenshotsManagerFramework",
+    "printedName": "ScreenshotsManagerFramework",
+    "children": [
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "ScreenshotsManagerFramework"
+      },
+      {
+        "kind": "Function",
+        "name": "ScreenshotsManager_enableScreenshots",
+        "printedName": "ScreenshotsManager_enableScreenshots()",
+        "children": [
+          {
+            "kind": "TypeNominal",
+            "name": "Void",
+            "printedName": "()"
+          }
+        ],
+        "declKind": "Func",
+        "usr": "c:(cm)ScreenshotsManager_enableScreenshots",
+        "mangledName": "$s27ScreenshotsManagerFramework0ab7_enableA0yyF",
+        "moduleName": "ScreenshotsManagerFramework",
+        "declAttributes": [
+          "AccessControl",
+          "CDecl",
+          "Custom"
+        ],
+        "funcSelfKind": "NonMutating"
+      },
+      {
+        "kind": "Function",
+        "name": "ScreenshotsManager_disableScreenshots",
+        "printedName": "ScreenshotsManager_disableScreenshots()",
+        "children": [
+          {
+            "kind": "TypeNominal",
+            "name": "Void",
+            "printedName": "()"
+          }
+        ],
+        "declKind": "Func",
+        "usr": "c:(cm)ScreenshotsManager_disableScreenshots",
+        "mangledName": "$s27ScreenshotsManagerFramework0ab8_disableA0yyF",
+        "moduleName": "ScreenshotsManagerFramework",
+        "declAttributes": [
+          "AccessControl",
+          "CDecl",
+          "Custom"
+        ],
+        "funcSelfKind": "NonMutating"
+      },
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "ScreenshotsManagerFramework"
+      },
+      {
+        "kind": "Import",
+        "name": "ScreenProtectorKit",
+        "printedName": "ScreenProtectorKit",
+        "declKind": "Import",
+        "moduleName": "ScreenshotsManagerFramework",
+        "declAttributes": [
+          "AccessControl"
+        ]
+      },
+      {
+        "kind": "Import",
+        "name": "UIKit",
+        "printedName": "UIKit",
+        "declKind": "Import",
+        "moduleName": "ScreenshotsManagerFramework"
+      },
+      {
+        "kind": "TypeDecl",
+        "name": "ScreenshotsManager",
+        "printedName": "ScreenshotsManager",
+        "children": [
+          {
+            "kind": "Function",
+            "name": "enableScreenshots",
+            "printedName": "enableScreenshots()",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:27ScreenshotsManagerFramework0aB0C06enableA0yyFZ",
+            "mangledName": "$s27ScreenshotsManagerFramework0aB0C06enableA0yyFZ",
+            "moduleName": "ScreenshotsManagerFramework",
+            "static": true,
+            "declAttributes": [
+              "Final",
+              "Custom"
+            ],
+            "funcSelfKind": "NonMutating"
+          },
+          {
+            "kind": "Function",
+            "name": "disableScreenshots",
+            "printedName": "disableScreenshots()",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:27ScreenshotsManagerFramework0aB0C07disableA0yyFZ",
+            "mangledName": "$s27ScreenshotsManagerFramework0aB0C07disableA0yyFZ",
+            "moduleName": "ScreenshotsManagerFramework",
+            "static": true,
+            "declAttributes": [
+              "Final",
+              "Custom"
+            ],
+            "funcSelfKind": "NonMutating"
+          },
+          {
+            "kind": "Constructor",
+            "name": "init",
+            "printedName": "init()",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "ScreenshotsManager",
+                "printedName": "ScreenshotsManagerFramework.ScreenshotsManager",
+                "usr": "s:27ScreenshotsManagerFramework0aB0C"
+              }
+            ],
+            "declKind": "Constructor",
+            "usr": "s:27ScreenshotsManagerFramework0aB0CACycfc",
+            "mangledName": "$s27ScreenshotsManagerFramework0aB0CACycfc",
+            "moduleName": "ScreenshotsManagerFramework",
+            "implicit": true,
+            "init_kind": "Designated"
+          }
+        ],
+        "declKind": "Class",
+        "usr": "s:27ScreenshotsManagerFramework0aB0C",
+        "mangledName": "$s27ScreenshotsManagerFramework0aB0C",
+        "moduleName": "ScreenshotsManagerFramework",
+        "isOpen": true,
+        "conformances": [
+          {
+            "kind": "Conformance",
+            "name": "Copyable",
+            "printedName": "Copyable",
+            "usr": "s:s8CopyableP",
+            "mangledName": "$ss8CopyableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Escapable",
+            "printedName": "Escapable",
+            "usr": "s:s9EscapableP",
+            "mangledName": "$ss9EscapableP"
+          }
+        ]
+      }
+    ],
+    "json_format_version": 8
+  },
+  "ConstValues": []
+}

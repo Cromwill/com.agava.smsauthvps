@@ -4,6 +4,10 @@
 <dict>
 	<key>files</key>
 	<dict>
+		<key>Headers/ScreenshotsManagerFramework.h</key>
+		<data>
+		ur5rCPPgeKdfZ5IPqaOAIbei6TY=
+		</data>
 		<key>Info.plist</key>
 		<data>
 		KCviOAtM6MulUvIhoShmtJ7C2Pw=
@@ -30,11 +34,22 @@
 		</data>
 		<key>Modules/ScreenshotsManagerFramework.swiftmodule/arm64-apple-ios.swiftmodule</key>
 		<data>
-		xP6RlYGeZX90jJGLBbspb2APCw4=
+		Rt8MytzR+LZ8OUJmaRUQlI36nIg=
 		</data>
 	</dict>
 	<key>files2</key>
 	<dict>
+		<key>Headers/ScreenshotsManagerFramework.h</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			ur5rCPPgeKdfZ5IPqaOAIbei6TY=
+			</data>
+			<key>hash2</key>
+			<data>
+			gWoABtCzeSZ23Z5FTGPGVrJHSPcK9HoNLY1WryKXQIE=
+			</data>
+		</dict>
 		<key>Modules/ScreenshotsManagerFramework.swiftmodule/Project/arm64-apple-ios.swiftsourceinfo</key>
 		<dict>
 			<key>hash</key>
@@ -94,11 +109,11 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			xP6RlYGeZX90jJGLBbspb2APCw4=
+			Rt8MytzR+LZ8OUJmaRUQlI36nIg=
 			</data>
 			<key>hash2</key>
 			<data>
-			BaJJe2yNYqFlLyzHKnwFie6nc3XdUB9O/cDkRONIdRw=
+			6IhhXPoySDWbYp5eIoOA2kojtCW+878N30ZBPLIzfhg=
 			</data>
 		</dict>
 	</dict>

@@ -6,8 +6,8 @@ using UnityEngine.Scripting;
 
 namespace Agava.Wink
 {
-    [Serializable, Preserve]
-    public class ScreenshotProtector
+    [Preserve]
+    public class ScreenshotProtector : MonoBehaviour
     {
         [SerializeField] private GameObject _webView;
         [SerializeField] private GameObject _screenshotProtectorWindow;

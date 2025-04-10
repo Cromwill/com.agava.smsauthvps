@@ -1,14 +1,15 @@
 #import <UnityFramework/UnityFramework-Swift.h>
+#import "UnityInterface.h"
 
 extern "C"
 {
     void startScreenshotDetection()
     {
-        [[ScreenshotDetector shared]   startScreenshotDetection];
+        [[ScreenshotDetector shared] startScreenshotDetection];
     }
 	
 	void stopScreenshotDetection()
     {
-        [[ScreenshotDetector shared]   stopScreenshotDetection];
+        [[ScreenshotDetector shared] stopScreenshotDetection];
     }
 }

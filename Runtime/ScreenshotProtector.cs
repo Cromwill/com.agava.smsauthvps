@@ -1,22 +1,27 @@
+using System;
+using System.Collections;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Scripting;
 
 namespace Agava.Wink
 {
-    [Preserve]
+    [Serializable, Preserve]
     public class ScreenshotProtector
     {
+        [SerializeField] private GameObject _webView;
+        [SerializeField] private GameObject _screnshotProtectorWindow;
+
+        private ICoroutine _coroutineRoot;
         private bool _screenshotsDisabled = false;
 
-#if UNITY_IOS && !UNITY_EDITOR
- [DllImport("__Internal")]
-    private static extern void disableScreenshots();
+        [DllImport("__Internal")]
+        private static extern void startScreenshotDetection();
 
-    [DllImport("__Internal")]
-    private static extern void enableScreenshots();
-#endif
+        [DllImport("__Internal")]
+        private static extern void stopScreenshotDetection();
 
+        public void Construct(ICoroutine coroutineRoot) => _coroutineRoot = coroutineRoot;
 
         public void TryDisableScreenshots()
         {
@@ -27,7 +32,7 @@ namespace Agava.Wink
 
 #if UNITY_EDITOR
             Debug.Log("SCREEN PROTECTOR: disable screenshots possibility!");
-#elif UNITY_EDITOR == false && UNITY_ANDROID
+#elif UNITY_ANDROID
             using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
             {
                 AndroidJavaObject currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
@@ -35,7 +40,7 @@ namespace Agava.Wink
                 myActivityHelper.CallStatic("SetSecureFlag", currentActivity);
             }
 #elif UNITY_IOS
-            disableScreenshots();
+                startScreenshotDetection();   
 #endif
         }
 
@@ -48,16 +53,33 @@ namespace Agava.Wink
 
 #if UNITY_EDITOR
             Debug.Log("SCREEN PROTECTOR: enable screenshots possibility!");
-#elif UNITY_EDITOR == false && UNITY_ANDROID
+#elif UNITY_ANDROID
             using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
             {
                 AndroidJavaObject currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
-                AndroidJavaObject myActivityHelper = new AndroidJavaObject("com.kindzadza.screenprotect.ScreenshotProtect");
+                AndroidJavaObject myActivity               Helper = new AndroidJavaObject("com.kindzadza.screenprotect.ScreenshotProtect");
                 myActivityHelper.CallStatic("ClearSecureFlag", currentActivity);
             }
 #elif UNITY_IOS
-    enableScreenshots();
+                stopScreenshotDetection(); 
 #endif
         }
+
+#if UNITY_IOS
+        private void OnScreenshotTaken()
+        {
+            _webView.SetActive(false);
+            _screnshotProtectorWindow.SetActive(true);
+
+            _coroutineRoot.StartCoroutine(WaitTwoSeconds());
+            IEnumerator WaitTwoSeconds()
+            {
+                yield return new WaitForSeconds(2);
+                _webView.SetActive(true);
+                _screnshotProtectorWindow.SetActive(false);
+            }
+        }
+#endif
+
     }
 }

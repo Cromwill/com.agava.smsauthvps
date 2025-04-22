@@ -20,8 +20,10 @@ namespace Agava.Wink
         [SerializeField] private ScreenshotProtector _screenshotProtector;
         [SerializeField] private DemoTimer _demoTimer;
         [SerializeField] private NotifyWindowHandler _notifyWindowHandler;
-        [Header("App name")]
+        [Header("App name (for WebView)")]
         [SerializeField] private WinkWebViewURLHandler _webViewURLHandler;
+        [Header("Game orientation")]
+        [SerializeField] private GameOrientation _gameOrientation;
         [Header("UI Input")]
         [SerializeField] private PhoneNumberFormatting _numbersInputField;
         [Header("UI Buttons")]
@@ -41,8 +43,6 @@ namespace Agava.Wink
         [SerializeField] private TextPlaceholder[] _phoneNumberPlaceholders;
         [Header("WebView")]
         [SerializeField] private WebViewPresenter _webViewPresenter;
-        [Header("Game orientation")]
-        [SerializeField] private GameOrientation _gameOrientation;
 
         private SignInFuctionsUI _signInFuctionsUI;
         private WinkAccessManager _winkAccessManager;
@@ -246,7 +246,7 @@ namespace Agava.Wink
 
                 if (_gameOrientation.NeedChangeOrientation)
                 {
-                    _gameOrientation.SetLandscapeOrientation();
+                    _gameOrientation.SetLandscapeOrientationPosibility();
                     _gameOrientation.SetSavedOrientation();
                 }
             }
@@ -297,6 +297,12 @@ namespace Agava.Wink
         public void SetRemoteTexts()
         {
             _notifyWindowHandler.FillTextFields();
+        }
+
+        public void TrySetCorrectOrientation()
+        {
+            if (_gameOrientation.NeedChangeOrientation)
+                _gameOrientation.SetLandscapeOrientation();
         }
 
         private void OnSignInContinueClicked()

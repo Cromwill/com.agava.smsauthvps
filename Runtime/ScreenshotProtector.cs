@@ -1,5 +1,3 @@
-using System;
-using System.Collections;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Scripting;
@@ -9,10 +7,9 @@ namespace Agava.Wink
     [Preserve]
     public class ScreenshotProtector : MonoBehaviour
     {
-        [SerializeField] private GameObject _webView;
-        [SerializeField] private GameObject _screenshotProtectorWindow;
+        [SerializeField] private WebViewPresenter _webViewPresenter;
+        [SerializeField] private GameObject _warningMessage;
 
-        private ICoroutine _coroutineRoot;
         private bool _screenshotsDisabled = false;
 
         [DllImport("__Internal")]
@@ -20,8 +17,6 @@ namespace Agava.Wink
 
         [DllImport("__Internal")]
         private static extern void stopScreenshotDetection();
-
-        public void Construct(ICoroutine coroutineRoot) => _coroutineRoot = coroutineRoot;
 
         public void TryDisableScreenshots()
         {
@@ -40,7 +35,7 @@ namespace Agava.Wink
                 myActivityHelper.CallStatic("SetSecureFlag", currentActivity);
             }
 #elif UNITY_IOS
-                startScreenshotDetection();   
+            startScreenshotDetection();
 #endif
         }
 
@@ -61,23 +56,27 @@ namespace Agava.Wink
                 myActivityHelper.CallStatic("ClearSecureFlag", currentActivity);
             }
 #elif UNITY_IOS
-                stopScreenshotDetection(); 
+            stopScreenshotDetection();
 #endif
         }
 
 #if UNITY_IOS
         private void OnScreenshotTaken(string _)
         {
-            _webView.SetActive(false);
-            _screenshotProtectorWindow.SetActive(true);
+            EnableWarningMessage();
+            Invoke(nameof(DisableWarningMessage), 2);
+        }
 
-            _coroutineRoot.StartCoroutine(WaitTwoSeconds());
-            IEnumerator WaitTwoSeconds()
-            {
-                yield return new WaitForSeconds(2);
-                _webView.SetActive(true);
-                _screenshotProtectorWindow.SetActive(false);
-            }
+        private void EnableWarningMessage()
+        {
+            _webViewPresenter.Hide();
+            _warningMessage.SetActive(true);
+        }
+
+        private void DisableWarningMessage()
+        {
+            _webViewPresenter.Show();
+            _warningMessage.SetActive(false);
         }
 #endif
 

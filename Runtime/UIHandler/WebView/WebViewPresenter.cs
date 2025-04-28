@@ -1,5 +1,7 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
+using Newtonsoft.Json;
 using System.Collections;
 
 namespace Agava.Wink
@@ -12,6 +14,8 @@ namespace Agava.Wink
 
         private static WebViewPresenter instance;
         private static IWebViewLoader _webViewLoader;
+        public static Action _webViewClosedAction;
+        public static Action _subscriptionPurchasedAction;
 
         private WebView _webView;
 
@@ -32,9 +36,11 @@ namespace Agava.Wink
             StartCoroutine(Initialize());
         }
 
-        public void Construct(IWebViewLoader webViewLoader)
+        public void Construct(IWebViewLoader webViewLoader, Action webViewClosedAction, Action subscriptionPurchasedAction)
         {
             _webViewLoader = webViewLoader;
+            _webViewClosedAction = webViewClosedAction;
+            _subscriptionPurchasedAction = subscriptionPurchasedAction;
         }
 
         private void OnEnable()
@@ -141,8 +147,45 @@ namespace Agava.Wink
 
         private static void OnEventReceived(string eventName)
         {
-            Debug.Log(eventName + "received!!!");
-            HideWebView();
+            Debug.Log("WebView: " + eventName + "received!!!");
+            Variants variants = JsonConvert.DeserializeObject<Variants>(eventName);
+
+            if (variants != null)
+            {
+                Debug.Log($"WebView: variants name = {variants.Name}, variants type = {variants.Data.Type}");
+
+                if (variants.CheckSubscription())
+                {
+                    Debug.Log($"WebView: subscription buyed!");
+                    _subscriptionPurchasedAction?.Invoke();
+                }
+                else if (variants.CheckCloseWebView())
+                {
+                    Debug.Log($"WebView: webview window close!");
+                    _webViewClosedAction?.Invoke();
+                }
+
+                HideWebView();
+            }
         }
+    }
+
+    internal class Variants
+    {
+        private const string VariantsEvent = "variants";
+        private const string BuyEvent = "buy";
+        private const string WebViewCloseEvent = "close";
+        private const string SubscriptionSuccessEvent = "success";
+
+        public string Name { get; set; }
+        public Data Data { get; set; }
+
+        public bool CheckSubscription() => Name == BuyEvent && Data.Type == SubscriptionSuccessEvent;
+        public bool CheckCloseWebView() => Data.Type == WebViewCloseEvent;
+    }
+
+    internal class Data
+    {
+        public string Type { get; set; }
     }
 }

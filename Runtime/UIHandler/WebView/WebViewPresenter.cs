@@ -147,29 +147,27 @@ namespace Agava.Wink
 
         private static void OnEventReceived(string eventName)
         {
-            Debug.Log("WebView: " + eventName + "received!!!");
             Variants variants = JsonConvert.DeserializeObject<Variants>(eventName);
 
             if (variants != null)
             {
-                Debug.Log($"WebView: variants name = {variants.Name}, variants type = {variants.Data.Type}");
-
                 if (variants.CheckSubscription())
                 {
-                    Debug.Log($"WebView: subscription buyed!");
                     _subscriptionPurchasedAction?.Invoke();
+                    AnalyticsWinkService.SendSubscriptionPurchaseWasSuccessful();
+                    HideWebView();
                 }
                 else if (variants.CheckCloseWebView())
                 {
-                    Debug.Log($"WebView: webview window close!");
                     _webViewClosedAction?.Invoke();
+                    AnalyticsWinkService.SendCancelSubscriptionPurchase();
+                    HideWebView();
                 }
-
-                HideWebView();
             }
         }
     }
 
+    [Serializable]
     internal class Variants
     {
         private const string VariantsEvent = "variants";
@@ -177,15 +175,16 @@ namespace Agava.Wink
         private const string WebViewCloseEvent = "close";
         private const string SubscriptionSuccessEvent = "success";
 
-        public string Name { get; set; }
-        public Data Data { get; set; }
+        public string Name;
+        public Data Data;
 
         public bool CheckSubscription() => Name == BuyEvent && Data.Type == SubscriptionSuccessEvent;
         public bool CheckCloseWebView() => Data.Type == WebViewCloseEvent;
     }
 
+    [Serializable]
     internal class Data
     {
-        public string Type { get; set; }
+        public string Type;
     }
 }

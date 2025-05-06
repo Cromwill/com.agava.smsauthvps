@@ -41,7 +41,7 @@ namespace Agava.Wink
         private RequestHandler _requestHandler;
         private TimespentService _timespentService;
         private SubscriptionSearchSystem _subscribeSearchSystem;
-        private Action<bool> _winkSubscriptionAccessRequest;
+        private Action<bool, bool> _winkSubscriptionAccessRequest;
         private Action<bool> _otpCodeAccepted;
         private string _uniqueId;
         private string _sanId = null;
@@ -55,6 +55,7 @@ namespace Agava.Wink
         public LoginData LoginData { get; private set; }
         public bool Authenficated { get; private set; } = false;
         public bool HasAccess { get; private set; } = false;
+        public bool HasTempAccess { get; private set; } = false;
 
 #if UNITY_ANDROID || UNITY_IOS
         public string AppId => Application.identifier;
@@ -66,7 +67,7 @@ namespace Agava.Wink
 
         public event Action<IReadOnlyList<string>> LimitReached;
         public event Action ResetLogin;
-        public event Action<bool> SignInSuccessfully;
+        public event Action<bool, bool> SignInSuccessfully;
         public event Action AuthorizationSuccessfully;
         public event Action AccountDeleted;
 
@@ -175,11 +176,31 @@ namespace Agava.Wink
         public void TestEnableSubsription()
         {
             HasAccess = true;
+            HasTempAccess = true;
             Authenficated = true;
             AuthorizationSuccessfully?.Invoke();
             Debug.Log("Test Access succesfully. No cloud saves");
         }
 #endif
+
+        public async Task<bool> CheckSubscription()
+        {
+            bool hasSubs = await _requestHandler.CheckSubscription(LoginData.phone);
+
+            if (hasSubs)
+            {
+                TrySendAnalyticsDataByNewUser(LoginData.phone);
+                OnSubscriptionExist();
+            }
+
+            return hasSubs;
+        }
+
+        public async void ActivateTempSubscription()
+        {
+             await _requestHandler.ActivateTempSubscription(LoginData.phone);
+            HasTempAccess = true;
+        }
 
         private void Login(LoginData data) => _requestHandler.Login(data, LimitReached, _winkSubscriptionAccessRequest, _otpCodeAccepted);
 
@@ -210,16 +231,17 @@ namespace Agava.Wink
             void SignOut()
             {
                 HasAccess = false;
+                HasTempAccess = false;
                 Authenficated = false;
                 AccountDeleted?.Invoke();
                 TokenLifeHelper.ClearTokens();
             }
         }
 
-        private void OnSignInSuccessfully(bool hasAccess)
+        private void OnSignInSuccessfully(bool hasAccess, bool hasTempAccess)
         {
             Authenficated = true;
-            SignInSuccessfully?.Invoke(hasAccess);
+            SignInSuccessfully?.Invoke(hasAccess, hasTempAccess);
             SearchSubscription(LoginData.phone);
             Debug.Log("Authentication successfully");
 
@@ -227,6 +249,14 @@ namespace Agava.Wink
             {
                 TrySendAnalyticsDataByNewUser(LoginData.phone);
                 OnSubscriptionExist();
+            }
+            else
+            {
+                if (hasTempAccess)
+                {
+                    HasTempAccess = true;
+                    AdsAppView.Program.PopupManager.Instance.OnSubscribeDetected();
+                }
             }
         }
 
@@ -236,6 +266,7 @@ namespace Agava.Wink
             SendEventSubscriberData();
 
             HasAccess = true;
+            HasTempAccess = true;
             AuthorizationSuccessfully?.Invoke();
             SendStartData(LoginData.phone);
             AdsAppView.Program.PopupManager.Instance.OnSubscribeDetected();
@@ -298,7 +329,7 @@ namespace Agava.Wink
         {
             yield return new WaitForEndOfFrame();
 
-            if (_subscriptionEventSent && HasAccess && DateTime.Now.Day != _lastTimeSendAnalytics.Day && _sendEventCoroutine == null)
+            if (_subscriptionEventSent && (HasAccess || HasTempAccess) && DateTime.Now.Day != _lastTimeSendAnalytics.Day && _sendEventCoroutine == null)
             {
                 SendEventSubscriberData();
             }

@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
-using UnityEngine.Scripting;
 using UnityEngine.UI;
+using UnityEngine.Scripting;
 
 namespace Agava.Wink
 {
@@ -14,8 +14,8 @@ namespace Agava.Wink
 
         private void OnDestroy()
         {
-            _closeButton?.onClick.RemoveAllListeners();
-            _profileButton.onClick.RemoveAllListeners();
+            _closeButton?.onClick.RemoveListener(Disable);
+            _profileButton.onClick.RemoveListener(OnProfileButtonClicked);
         }
 
         private void Awake()
@@ -28,6 +28,7 @@ namespace Agava.Wink
         {
             _imagesCarousel.Enable();
             EnableCanvasGroup(_canvasGroup);
+            AnalyticsWinkService.SendSubscriptionManagementWindow();
         }
 
         public override void Disable()
@@ -38,7 +39,7 @@ namespace Agava.Wink
 
         private void OnProfileButtonClicked()
         {
-            WebViewPresenter.ShowWebView(Links.Subscription);
+            Application.OpenURL(Links.Subscription);
             Disable();
         }
     }

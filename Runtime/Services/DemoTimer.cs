@@ -24,18 +24,22 @@ namespace Agava.Wink
         private bool _stoped;
         private float _second;
         private float _delay = 5f;
+        private float _remoteTempCfgSeconds;
 
         public event Action TimerExpired;
+        public event Action FirstChecked;
 
         public bool Expired { get; private set; }
 
-        internal void Construct(IWinkAccessManager winkAccessManager, int remoteCfgSeconds, IWinkSignInHandlerUI winkSignInHandlerUI)
+        internal void Construct(IWinkAccessManager winkAccessManager, int remoteCfgSeconds, int remoteTempCfgSeconds, IWinkSignInHandlerUI winkSignInHandlerUI)
         {
             _winkSignInHandlerUI = winkSignInHandlerUI;
             _winkAccessManager = winkAccessManager;
 
             if (remoteCfgSeconds <= 0)
                 remoteCfgSeconds = _defaultTimerSeconds;
+
+            _remoteTempCfgSeconds = remoteTempCfgSeconds <= 0 ? _defaultTimerSeconds : remoteTempCfgSeconds;
 
             if (UnityEngine.PlayerPrefs.HasKey(FirstTimeSave) == false)
             {
@@ -65,11 +69,13 @@ namespace Agava.Wink
 
         internal void Start()
         {
+            if (WinkAccessManager.Instance.HasAccess)
+                return;
+
             Expired = false;
             _stoped = false;
-#if UNITY_EDITOR || TEST
-                Debug.Log("Demo activated");
-#endif
+
+            Debug.Log("Demo activated");
         }
 
         internal void Stop()
@@ -77,9 +83,7 @@ namespace Agava.Wink
             Expired = false;
             _stoped = true;
 
-#if UNITY_EDITOR || TEST
             Debug.Log("Demo Stoped");
-#endif
         }
 
         internal void Update()
@@ -96,6 +100,8 @@ namespace Agava.Wink
             if (_winkSignInHandlerUI.IsAnyWindowEnabled || Expired || SmsAuthApi.Initialized == false)
                 return;
 
+            Debug.Log($"WebView: demo timer updated = {_savedDemoTime}!");
+
             _second -= Time.unscaledDeltaTime;
 
             if (_second <= 0)
@@ -110,6 +116,25 @@ namespace Agava.Wink
                 UnityEngine.PlayerPrefs.SetString(FirstTimeSave, _savedDemoTime.ToString());
                 _second = 1;
             }
+        }
+
+        internal void AddDemoTime()
+        {
+            _savedDemoTime += TimeSpan.FromSeconds(_remoteTempCfgSeconds);
+            Expired = false;
+            Debug.Log($"WebView: add demo time = {_savedDemoTime}!");
+            UnityEngine.PlayerPrefs.SetString(FirstTimeSave, _savedDemoTime.ToString());
+        }
+
+        internal void CheckOutTime()
+        {
+            if (_savedDemoTime <= TimeSpan.Zero && WinkAccessManager.Instance.HasAccess == false)
+            {
+                Expired = true;
+                UnityEngine.PlayerPrefs.SetString(FirstTimeSave, _savedDemoTime.ToString());
+            }
+
+            FirstChecked?.Invoke();
         }
     }
 }

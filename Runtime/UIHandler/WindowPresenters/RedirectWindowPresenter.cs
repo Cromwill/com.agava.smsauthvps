@@ -1,7 +1,7 @@
-﻿using System;
-using UnityEngine;
-using UnityEngine.Scripting;
+﻿using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Scripting;
+using System.Collections.Generic;
 
 namespace Agava.Wink
 {
@@ -14,24 +14,27 @@ namespace Agava.Wink
         [SerializeField] private Button _closeButton;
         [SerializeField] private Button _signInButton;
         [SerializeField] private bool _closeOnYesClicked = true;
+        [SerializeField] private List<XmlConfigText> _xmlConfigTexts;
+
+        public bool TryFreeWink { get; private set; } = false;
 
         private void Awake()
         {
-            _closeButton?.onClick.AddListener(Disable);
+            _closeButton?.onClick.AddListener(OnCloseButtonClick);
             _yesButton.onClick.AddListener(OnYesClicked);
+            _signInButton.onClick.AddListener(ResetFreeChoise);
         }
 
         private void OnDestroy()
         {
-            _closeButton?.onClick.RemoveAllListeners();
-            _yesButton.onClick.RemoveAllListeners();
+            _closeButton?.onClick.RemoveListener(OnCloseButtonClick);
+            _yesButton.onClick.RemoveListener(OnYesClicked);
+            _signInButton.onClick.RemoveListener(ResetFreeChoise);
         }
 
         public void Enable(bool closeButton)
         {
-            if (_closeButton != null)
-                _closeButton.gameObject.SetActive(closeButton);
-
+            TryFreeWink = false;
             _imagesCarousel.Enable();
             EnableCanvasGroup(_canvasGroup);
         }
@@ -44,13 +47,24 @@ namespace Agava.Wink
             _imagesCarousel.Disable();
         }
 
+        public void FillRemoteTexts() => _xmlConfigTexts.ForEach(t => t.FillText());
+
+        public void TryShowCloseButton(bool enabled) => _closeButton.gameObject.SetActive(enabled);
+
         private void OnYesClicked()
         {
-            WebViewPresenter.ShowWebView(Links.Subscription);
-            AnalyticsWinkService.SendPayWallRedirect();
+            TryFreeWink = true;
 
             if (_closeOnYesClicked)
                 Disable();
         }
+
+        private void OnCloseButtonClick()
+        {
+            TryFreeWink = false;
+            Disable();
+        }
+
+        private void ResetFreeChoise() => TryFreeWink = false;
     }
 }

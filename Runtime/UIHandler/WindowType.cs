@@ -20,5 +20,9 @@ namespace Agava.Wink
         WinkProfile,
         DeleteAccount,
         Keyboard,
+        OrientationСhange,
+        SubscriptionCheck,
+        HelloWOAccess,
+        WinkInfo,
     }
 }

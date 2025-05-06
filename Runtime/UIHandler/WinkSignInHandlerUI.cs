@@ -1,10 +1,10 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
 using UnityEngine.Scripting;
-using System.Linq;
+using System.Collections.Generic;
 
 namespace Agava.Wink
 {
@@ -14,10 +14,15 @@ namespace Agava.Wink
     [Preserve]
     public class WinkSignInHandlerUI : MonoBehaviour, IWinkSignInHandlerUI, ICoroutine
     {
-        private const float RedirectWindowDelay = 1.0f;
+        private const float ChangeOrientationDelay = 1.0f;
 
+        [SerializeField] private ScreenshotProtector _screenshotProtector;
         [SerializeField] private DemoTimer _demoTimer;
         [SerializeField] private NotifyWindowHandler _notifyWindowHandler;
+        [Header("App name (for WebView)")]
+        [SerializeField] private WinkWebViewURLHandler _webViewURLHandler;
+        [Header("Game orientation")]
+        [SerializeField] private GameOrientation _gameOrientation;
         [Header("UI Input")]
         [SerializeField] private PhoneNumberFormatting _numbersInputField;
         [Header("UI Buttons")]
@@ -25,9 +30,12 @@ namespace Agava.Wink
         [SerializeField] private Button _enterCodeContinueButton;
         [SerializeField] private Button[] _signInButtons;
         [SerializeField] private Button[] _tryWinkButtons;
+        [SerializeField] private Button[] _switchOrientationButtons;
+        [SerializeField] private Button[] _subscriptionCheckButtons;
+        [SerializeField] private Button[] _closeButtonsFromSettings;
+        [SerializeField] private Button _closeWinkInfoButton;
         [Header("Analytics buttons")]
-        [SerializeField] private Button _closeButton;
-        [SerializeField] private Button _haveWinkButton;
+        [SerializeField] private AnalyticsSender _analyticsSender;
         [Header("Factory components")]
         [SerializeField] private UnlinkDeviceViewContainer _unlinkDeviceViewContainer;
         [Header("Placeholders")]
@@ -37,6 +45,7 @@ namespace Agava.Wink
 
         private SignInFuctionsUI _signInFuctionsUI;
         private WinkAccessManager _winkAccessManager;
+        private bool _logInFromSettings = false;
 
         public static WinkSignInHandlerUI Instance { get; private set; }
 
@@ -44,8 +53,14 @@ namespace Agava.Wink
 
         public event Action AllWindowsClosed;
 
+        private void Awake()
+        {
+            StartCoroutine(_webViewURLHandler.Construct());
 
-        private void Awake() => _notifyWindowHandler.OpenWindow(WindowType.ProccessOn);
+            _webViewURLHandler.CheckAvailabilityURL();
+            _notifyWindowHandler.Construct(_gameOrientation, _webViewURLHandler);
+            _notifyWindowHandler.OpenWindow(WindowType.ProccessOn);
+        }
 
         private void OnApplicationFocus(bool focus) => _signInFuctionsUI?.OnAppFocus(focus);
 
@@ -62,10 +77,18 @@ namespace Agava.Wink
                 button.onClick.RemoveListener(OpenSignWindow);
 
             foreach (var button in _tryWinkButtons)
-                button.onClick.RemoveListener(OpenSignWindowWithDelay);
+                button.onClick.RemoveListener(OpenSignWindow);
 
-            _closeButton.onClick.RemoveListener(OnCloseButtonClick);
-            _haveWinkButton.onClick.RemoveListener(OnHaveWinkButtonClick);
+            foreach (var button in _switchOrientationButtons)
+                button.onClick.RemoveListener(OpenChangeOrientationWindow);
+
+            foreach (var button in _subscriptionCheckButtons)
+                button.onClick.RemoveListener(CheckSubscription);
+
+            foreach (var button in _closeButtonsFromSettings)
+                button.onClick.RemoveListener(ContinueGame);
+
+            _closeWinkInfoButton.onClick.RemoveListener(OnCloseWinkInfoButtonClick);
 
             _unlinkDeviceViewContainer.DeviceRemoved -= OnUnlinkButtonClicked;
 
@@ -74,7 +97,12 @@ namespace Agava.Wink
             _winkAccessManager.ResetLogin -= OpenSignWindow;
             _winkAccessManager.LimitReached -= OnLimitReached;
             _winkAccessManager.SignInSuccessfully -= OnSignInSuccessfully;
+            _demoTimer.TimerExpired -= OnTimerExpired;
+            _demoTimer.FirstChecked -= OnTimerFirstChecked;
             _demoTimer.Dispose();
+            _notifyWindowHandler.SunbscriptionBuyed -= OnSunbscriptionBuyed;
+            _notifyWindowHandler.Dispose();
+            _analyticsSender.Dispose();
         }
 
         public IEnumerator Initialize()
@@ -119,6 +147,7 @@ namespace Agava.Wink
 
             _signInFuctionsUI = new(_notifyWindowHandler, _demoTimer, winkAccessManager, this, this);
             _winkAccessManager = winkAccessManager;
+            _analyticsSender.Construct();
 
             _enterCodeContinueButton.onClick.AddListener(OnEnterCodeContinueClicked);
             _signInContinueButton.onClick.AddListener(OnSignInContinueClicked);
@@ -127,10 +156,18 @@ namespace Agava.Wink
                 button.onClick.AddListener(OpenSignWindow);
 
             foreach (var button in _tryWinkButtons)
-                button.onClick.AddListener(OpenSignWindowWithDelay);
+                button.onClick.AddListener(OpenSignWindow);
 
-            _closeButton.onClick.AddListener(OnCloseButtonClick);
-            _haveWinkButton.onClick.AddListener(OnHaveWinkButtonClick);
+            foreach (var button in _switchOrientationButtons)
+                button.onClick.AddListener(OpenChangeOrientationWindow);
+
+            foreach (var button in _subscriptionCheckButtons)
+                button.onClick.AddListener(CheckSubscription);
+
+            foreach (var button in _closeButtonsFromSettings)
+                button.onClick.AddListener(ContinueGame);
+
+            _closeWinkInfoButton.onClick.AddListener(OnCloseWinkInfoButtonClick);
 
             _unlinkDeviceViewContainer.DeviceRemoved += OnUnlinkButtonClicked;
 
@@ -141,6 +178,8 @@ namespace Agava.Wink
             _winkAccessManager.SignInSuccessfully += OnSignInSuccessfully;
             _winkAccessManager.AuthorizationSuccessfully += OnAuthorizationSuccessfully;
             _demoTimer.TimerExpired += OnTimerExpired;
+            _demoTimer.FirstChecked += OnTimerFirstChecked;
+            _notifyWindowHandler.SunbscriptionBuyed += OnSunbscriptionBuyed;
         }
 
         public void OpenStartWindow() => OpenSubscriptionWindow();
@@ -151,23 +190,17 @@ namespace Agava.Wink
             AnalyticsWinkService.SendEnterPhoneWindow();
         }
 
-        private void OpenSignWindowWithDelay()
+        private void OpenChangeOrientationWindow()
         {
-            StartCoroutine(Delay());
+            _screenshotProtector.TryEnableScreenshots();
 
-            IEnumerator Delay()
-            {
-                _notifyWindowHandler.OpenWindow(WindowType.ProccessOn);
-
-                yield return new WaitForSeconds(RedirectWindowDelay);
-
-                _notifyWindowHandler.CloseWindow(WindowType.ProccessOn);
-                OpenSignWindow();
-            }
+            if (_gameOrientation.NeedChangeOrientation)
+                _notifyWindowHandler.OpenWindow(WindowType.OrientationСhange);
         }
 
         public void OpenSubscriptionWindow()
         {
+            _screenshotProtector.TryDisableScreenshots();
             _notifyWindowHandler.OpenWindow(WindowType.Redirect);
             AnalyticsWinkService.SendSubscribeOfferWindow();
         }
@@ -178,41 +211,81 @@ namespace Agava.Wink
 
         public void OnWinkButtonClick()
         {
+            _screenshotProtector.TryDisableScreenshots();
+            Action action = null;
+            _logInFromSettings = true;
+
             if (_winkAccessManager.Authenficated)
             {
-                if (_winkAccessManager.HasAccess)
-                {
-                    _notifyWindowHandler.OpenWindow(WindowType.WinkProfile);
-                }
+                AnalyticsWinkService.SendSubscribeButtonClickOnSettings();
+
+                if (_winkAccessManager.HasAccess || _winkAccessManager.HasTempAccess)
+                    action = () => _notifyWindowHandler.OpenWindow(WindowType.WinkProfile);
                 else
-                {
-                    OpenSubscriptionWindow();
-                }
+                    action = () => _notifyWindowHandler.OpenHelloWindowWOAccess();
             }
             else
             {
-                OpenSignWindow();
+                action = OpenSignWindow;
+            }
+
+            _gameOrientation.SaveGameOrientation();
+            StartCoroutine(ActionWithDelay(ChangeOrientationDelay, action));
+
+            if (_gameOrientation.NeedChangeOrientation)
+                _gameOrientation.SetPortraitOrientation();
+        }
+
+        private void ContinueGame()
+        {
+            if (_logInFromSettings)
+            {
+                _screenshotProtector.TryEnableScreenshots();
+                _logInFromSettings = false;
+
+                if (_gameOrientation.NeedChangeOrientation)
+                {
+                    _gameOrientation.SetLandscapeOrientationPosibility();
+                    _gameOrientation.SetSavedOrientation();
+                }
             }
         }
 
         public void OnDeleteAccountButtonClick()
         {
-            _notifyWindowHandler.OpenDeleteAccountWindow(
-                onDeleteAccount: () =>
-                {
-                    _winkAccessManager.DeleteAccount(
-                    onComplete: (resultSuccess) =>
+            _screenshotProtector.TryDisableScreenshots();
+            _logInFromSettings = true;
+            _gameOrientation.SaveGameOrientation();
+            AnalyticsWinkService.SendDeleteAccountButtonClickOnSetting();
+
+            if (_gameOrientation.NeedChangeOrientation)
+                _gameOrientation.SetPortraitOrientation();
+
+            StartCoroutine(ActionWithDelay(ChangeOrientationDelay, () =>
+                _notifyWindowHandler.OpenDeleteAccountWindow(onDeleteAccount: () =>
                     {
-                        if (resultSuccess == false)
-                        {
-                            _notifyWindowHandler.OpenWindow(WindowType.Fail);
-                        }
-                        else
+                        _winkAccessManager.DeleteAccount(
+                        onComplete: (resultSuccess) =>
                         {
                             AnalyticsWinkService.SendDeleteWindow();
-                        }
-                    });
-                });
+
+                            if (resultSuccess == false)
+                                _notifyWindowHandler.OpenWindow(WindowType.Fail);
+                            else
+                                ContinueGame();
+                        });
+                    })));
+        }
+
+        public void SetRemoteTexts()
+        {
+            _notifyWindowHandler.FillTextFields();
+        }
+
+        public void TrySetCorrectOrientation()
+        {
+            if (_gameOrientation.NeedChangeOrientation)
+                _gameOrientation.SetLandscapeOrientation();
         }
 
         private void OnSignInContinueClicked()
@@ -245,17 +318,16 @@ namespace Agava.Wink
             _notifyWindowHandler.CloseWindow(WindowType.EnterOtpCode);
         }
 
-        private void OnSignInSuccessfully(bool hasAccess)
+        private void OnSignInSuccessfully(bool hasAccess, bool hasTempAccess)
         {
+            _screenshotProtector.TryDisableScreenshots();
             _numbersInputField.Clear();
             _signInFuctionsUI.OnSignInSuccesfully(hasAccess);
 
-            if (hasAccess)
-            {
-                SetPhone();
-                _notifyWindowHandler.CloseWindow(WindowType.Redirect);
-                _notifyWindowHandler.OpenHelloWindow(hasAccess);
-            }
+            SetPhone();
+            _webViewURLHandler.SetPhone(_winkAccessManager.LoginData.phone);
+            _notifyWindowHandler.CloseWindow(WindowType.Redirect);
+            _notifyWindowHandler.OpenHelloWindow(hasAccess || (hasTempAccess && _demoTimer.Expired == false));
         }
 
         private void SetPhone()
@@ -269,11 +341,54 @@ namespace Agava.Wink
                 placeholder.ReplaceValue(number);
         }
 
-        private void OnTimerExpired() => _notifyWindowHandler.OpenDemoExpiredWindow(false);
+        private void OnCloseWinkInfoButtonClick()
+        {
+#if TEST_TEMP_SUBSCRIPTION
+            _notifyWindowHandler.ConfirmPurchaseSubscriptionOnWebView();
+#else
+            _notifyWindowHandler.OpenHelloWindowWOAccess();
+#endif
+        }
 
-        private void OnCloseButtonClick() => AnalyticsWinkService.SendCloseStartWindow();
+        private void CheckSubscription() => _notifyWindowHandler.OpenWindow(WindowType.SubscriptionCheck);
 
-        private void OnHaveWinkButtonClick() => AnalyticsWinkService.SendHaveWinkButtonClick();
+        private async void OnTimerExpired()
+        {
+            if(_winkAccessManager.Authenficated)
+            {
+                bool hasSubsc = await _winkAccessManager.CheckSubscription();
+
+                if (hasSubsc)
+                    return;
+            }
+
+            if (_gameOrientation.NeedChangeOrientation)
+                _gameOrientation.SetPortraitOrientation();
+
+            _notifyWindowHandler.ChangeDemoModeOption(enabled: false);
+
+            if (_winkAccessManager.Authenficated)
+            {
+                SetPhone();
+                _notifyWindowHandler.OpenHelloWindowWOAccess();
+            }
+            else
+            {
+                AnalyticsWinkService.SendSubscribeOfferWindow();
+                _notifyWindowHandler.OpenDemoExpiredWindow(false);
+            }
+
+            _screenshotProtector.TryDisableScreenshots();
+        }
+
+        private void OnTimerFirstChecked() => _notifyWindowHandler.ChangeDemoModeOption(enabled: _demoTimer.Expired == false);
+
+        private void OnSunbscriptionBuyed()
+        {
+            _demoTimer.AddDemoTime();
+            _notifyWindowHandler.ChangeDemoModeOption(enabled: _demoTimer.Expired == false);
+            _winkAccessManager.ActivateTempSubscription();
+        }
 
         private IEnumerator EnternetChecking()
         {
@@ -294,6 +409,16 @@ namespace Agava.Wink
 
                 yield return wait;
             }
+        }
+
+        private IEnumerator ActionWithDelay(float delay, Action action = null)
+        {
+            _notifyWindowHandler.OpenWindow(WindowType.ProccessOn);
+
+            yield return new WaitForSeconds(delay);
+
+            action?.Invoke();
+            _notifyWindowHandler.CloseWindow(WindowType.ProccessOn);
         }
     }
 }

@@ -1,6 +1,8 @@
-using System.Collections;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
+using Newtonsoft.Json;
+using System.Collections;
 
 namespace Agava.Wink
 {
@@ -11,6 +13,9 @@ namespace Agava.Wink
         [SerializeField] private WebView _webViewPrefab;
 
         private static WebViewPresenter instance;
+        private static IWebViewLoader _webViewLoader;
+        public static Action _webViewClosedAction;
+        public static Action _subscriptionPurchasedAction;
 
         private WebView _webView;
 
@@ -31,6 +36,13 @@ namespace Agava.Wink
             StartCoroutine(Initialize());
         }
 
+        public void Construct(IWebViewLoader webViewLoader, Action webViewClosedAction, Action subscriptionPurchasedAction)
+        {
+            _webViewLoader = webViewLoader;
+            _webViewClosedAction = webViewClosedAction;
+            _subscriptionPurchasedAction = subscriptionPurchasedAction;
+        }
+
         private void OnEnable()
         {
             _button.onClick.AddListener(OnBackButtonClick);
@@ -39,6 +51,18 @@ namespace Agava.Wink
         private void OnDisable()
         {
             _button.onClick.RemoveListener(OnBackButtonClick);
+        }
+
+        public void Show()
+        {
+            if (_webView != null && _webView.Initialized)
+                _webView.ShowLastPage();
+        }
+
+        public void Hide()
+        {
+            if (_webView != null && _webView.Initialized)
+                _webView.Hide();
         }
 
         private IEnumerator Initialize()
@@ -79,7 +103,8 @@ namespace Agava.Wink
             }
 
             instance.Enable();
-            instance._webView.OpenURL(url);
+            instance._webView.OpenURL(url, _webViewLoader);
+            instance._webView.WebPageEventReceived += OnEventReceived;
 #endif
         }
 
@@ -93,9 +118,10 @@ namespace Agava.Wink
 
             instance._webView.Hide();
             instance.Disable();
+            instance._webView.WebPageEventReceived -= OnEventReceived;
         }
 
-        private static void OpenURL(string url)
+        public static void OpenURL(string url)
         {
             Application.OpenURL(url);
         }
@@ -118,5 +144,47 @@ namespace Agava.Wink
         {
             HideWebView();
         }
+
+        private static void OnEventReceived(string eventName)
+        {
+            Variants variants = JsonConvert.DeserializeObject<Variants>(eventName);
+
+            if (variants != null)
+            {
+                if (variants.CheckSubscription())
+                {
+                    _subscriptionPurchasedAction?.Invoke();
+                    AnalyticsWinkService.SendSubscriptionPurchaseWasSuccessful();
+                    HideWebView();
+                }
+                else if (variants.CheckCloseWebView())
+                {
+                    _webViewClosedAction?.Invoke();
+                    AnalyticsWinkService.SendCancelSubscriptionPurchase();
+                    HideWebView();
+                }
+            }
+        }
+    }
+
+    [Serializable]
+    internal class Variants
+    {
+        private const string VariantsEvent = "variants";
+        private const string BuyEvent = "buy";
+        private const string WebViewCloseEvent = "close";
+        private const string SubscriptionSuccessEvent = "success";
+
+        public string Name;
+        public Data Data;
+
+        public bool CheckSubscription() => Name == BuyEvent && Data.Type == SubscriptionSuccessEvent;
+        public bool CheckCloseWebView() => Data.Type == WebViewCloseEvent;
+    }
+
+    [Serializable]
+    internal class Data
+    {
+        public string Type;
     }
 }

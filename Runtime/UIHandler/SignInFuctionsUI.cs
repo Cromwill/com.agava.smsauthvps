@@ -11,6 +11,7 @@ namespace Agava.Wink
     internal class SignInFuctionsUI
     {
         private const string RemoteName = "max-demo-minutes";
+        private const string RemoteTempName = "demo-overtime-minutes";
         private const int MinutesFactor = 60;
 
         private readonly DemoTimer _demoTimer;
@@ -67,26 +68,34 @@ namespace Agava.Wink
             await Task.Yield();
 
             var response = await SmsAuthApi.GetRemoteConfig(RemoteName);
+            var responseTemp = await SmsAuthApi.GetRemoteConfig(RemoteTempName);
 
-            if (response.statusCode == UnityWebRequest.Result.Success)
+            if (response.statusCode == UnityWebRequest.Result.Success && responseTemp.statusCode == UnityWebRequest.Result.Success)
             {
                 int seconds;
+                int tempSeconds;
 
                 if (string.IsNullOrEmpty(response.body))
                     seconds = 0;
                 else
                     seconds = Convert.ToInt32(response.body) * MinutesFactor;
 
-                _demoTimer.Construct(_winkAccessManager, seconds, _winkSignInHandlerUI);
+                if (string.IsNullOrEmpty(responseTemp.body))
+                    tempSeconds = 0;
+                else
+                    tempSeconds = Convert.ToInt32(responseTemp.body) * MinutesFactor;
+
+                _demoTimer.Construct(_winkAccessManager, seconds, tempSeconds, _winkSignInHandlerUI);
                 _demoTimer.Start();
-#if UNITY_EDITOR || TEST
+                _demoTimer.CheckOutTime();
+
                 Debug.Log("Remote setted: " + response.body);
-#endif
             }
             else
             {
-                _demoTimer.Construct(_winkAccessManager, 0, _winkSignInHandlerUI);
+                _demoTimer.Construct(_winkAccessManager, 0, 0, _winkSignInHandlerUI);
                 _demoTimer.Start();
+                _demoTimer.CheckOutTime();
                 Debug.LogError("Fail to recieve remote config: " + response.statusCode);
             }
         }
@@ -126,8 +135,9 @@ namespace Agava.Wink
         internal void OnSignInSuccesfully(bool hasAccess)
         {
             if (hasAccess)
-                OnAuthorizationSuccessfully();
+                _demoTimer.Stop();
 
+            _notifyWindowHandler.CloseWindow(WindowType.DemoTimerExpired);
             _notifyWindowHandler.CloseWindow(WindowType.SignIn);
         }
 

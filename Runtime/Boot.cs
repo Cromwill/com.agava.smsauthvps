@@ -4,6 +4,7 @@ using UnityEngine;
 using SmsAuthAPI.Program;
 using UnityEngine.Scripting;
 using AdsAppView.Utility;
+using SmsAuthAPI.Utility;
 
 namespace Agava.Wink
 {
@@ -62,8 +63,8 @@ namespace Agava.Wink
                 yield return _winkAccessManager.Construct();
                 _winkSignInHandlerUI.StartService(_winkAccessManager);
                 _winkSignInHandlerUI.Construct();
+                yield return SheetRemoteConfigs.Initialize();
                 yield return _winkAccessManager.TryQuickAccess();
-
                 _winkSignInHandlerUI.SetRemoteTexts();
 
                 _signInProcess = StartCoroutine(OnStarted());
@@ -83,7 +84,6 @@ namespace Agava.Wink
             }
             else
             {
-                _winkSignInHandlerUI.TrySetCorrectOrientation();
                 yield return _winkSignInHandlerUI.Initialize();
                 _loadingProgressBar.Disable();
                 _sceneLoader.LoadGameScene();

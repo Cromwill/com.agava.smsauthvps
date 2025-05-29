@@ -194,8 +194,7 @@ namespace Agava.Wink
         {
             _screenshotProtector.TryEnableScreenshots();
 
-            if (_gameOrientation.NeedChangeOrientation)
-                _notifyWindowHandler.OpenWindow(WindowType.OrientationСhange);
+            TrySetCorrectOrientation();
         }
 
         public void OpenSubscriptionWindow()
@@ -214,10 +213,14 @@ namespace Agava.Wink
             _screenshotProtector.TryDisableScreenshots();
             Action action = null;
             _logInFromSettings = true;
+            _gameOrientation.SaveGameOrientation();
 
             if (_winkAccessManager.Authenficated)
             {
                 AnalyticsWinkService.SendSubscribeButtonClickOnSettings();
+
+                if (_gameOrientation.NeedChangeOrientation)
+                    _gameOrientation.SetPortraitOrientation();
 
                 if (_winkAccessManager.HasAccess || _winkAccessManager.HasTempAccess)
                     action = () => _notifyWindowHandler.OpenWindow(WindowType.WinkProfile);
@@ -228,12 +231,8 @@ namespace Agava.Wink
             {
                 action = OpenSignWindow;
             }
-
-            _gameOrientation.SaveGameOrientation();
-            StartCoroutine(ActionWithDelay(ChangeOrientationDelay, action));
-
-            if (_gameOrientation.NeedChangeOrientation)
-                _gameOrientation.SetPortraitOrientation();
+            
+            StartCoroutine(ActionWithDelay(WindowType.ProccessOn, ChangeOrientationDelay, action));
         }
 
         private void ContinueGame()
@@ -261,7 +260,7 @@ namespace Agava.Wink
             if (_gameOrientation.NeedChangeOrientation)
                 _gameOrientation.SetPortraitOrientation();
 
-            StartCoroutine(ActionWithDelay(ChangeOrientationDelay, () =>
+            StartCoroutine(ActionWithDelay(WindowType.ProccessOn, ChangeOrientationDelay, () =>
                 _notifyWindowHandler.OpenDeleteAccountWindow(onDeleteAccount: () =>
                     {
                         _winkAccessManager.DeleteAccount(
@@ -312,13 +311,9 @@ namespace Agava.Wink
 
         private void OnAuthorizationSuccessfully() => _signInFuctionsUI.OnAuthorizationSuccessfully();
 
-        private void OnEnterCodeContinueClicked()
-        {
-            _notifyWindowHandler.CloseWindow(WindowType.Redirect);
-            _notifyWindowHandler.CloseWindow(WindowType.EnterOtpCode);
-        }
+        private void OnEnterCodeContinueClicked() => _notifyWindowHandler.CloseWindow(WindowType.Redirect);
 
-        private void OnSignInSuccessfully(bool hasAccess, bool hasTempAccess)
+        private void OnSignInSuccessfully(bool hasAccess, bool hasTempAccess, bool loginFromStartApp)
         {
             _screenshotProtector.TryDisableScreenshots();
             _numbersInputField.Clear();
@@ -326,6 +321,29 @@ namespace Agava.Wink
 
             SetPhone();
             _webViewURLHandler.SetPhone(_winkAccessManager.LoginData.phone);
+
+            if (_gameOrientation.NeedChangeOrientation)
+            {
+                _gameOrientation.SaveGameOrientation();
+
+                if(loginFromStartApp)
+                {
+                    _gameOrientation.SetPortraitOrientation();
+
+                    StartCoroutine(ActionWithDelay(WindowType.BlankWindow, ChangeOrientationDelay, () =>
+                    {
+                        _notifyWindowHandler.CloseWindow(WindowType.Redirect);
+                        _notifyWindowHandler.OpenHelloWindow(hasAccess || (hasTempAccess && _demoTimer.Expired == false));
+                    }));
+
+                    return;
+                }
+                else
+                {
+                    _notifyWindowHandler.OpenWindow(WindowType.OrientationСhange);
+                }
+            }
+
             _notifyWindowHandler.CloseWindow(WindowType.Redirect);
             _notifyWindowHandler.OpenHelloWindow(hasAccess || (hasTempAccess && _demoTimer.Expired == false));
         }
@@ -411,14 +429,14 @@ namespace Agava.Wink
             }
         }
 
-        private IEnumerator ActionWithDelay(float delay, Action action = null)
+        private IEnumerator ActionWithDelay(WindowType windowType, float delay, Action action = null)
         {
-            _notifyWindowHandler.OpenWindow(WindowType.ProccessOn);
+            _notifyWindowHandler.OpenWindow(windowType);
 
             yield return new WaitForSeconds(delay);
 
             action?.Invoke();
-            _notifyWindowHandler.CloseWindow(WindowType.ProccessOn);
+            _notifyWindowHandler.CloseWindow(windowType);
         }
     }
 }

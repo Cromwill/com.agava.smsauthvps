@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Scripting;
 using System.Collections.Generic;
-using SmsAuthAPI.Program;
+using AdsAppView.DTO;
 
 namespace Agava.Wink
 {
@@ -27,10 +27,13 @@ namespace Agava.Wink
         [SerializeField] private HelloWOAccessWindowPresenter _helloWOAccessWindow;
         [SerializeField] private OrientationСhangeWindowPresenter _orientationСhangeWindow;
         [SerializeField] private WebViewPresenter _webViewPresenter;
+        [SerializeField] private RewardContinueWindowPresenter _rewardContinueWindowPresenter;
         [Header("All UI Windows")]
         [SerializeField] private List<WindowPresenter> _windows;
 
         private WinkWebViewURLHandler _winkWebViewURLHandler;
+        private GameOrientation _gameOrientation;
+        private ScreenshotProtector _screenshotProtector;
         private bool _subscriptionChecked = false;
 
         private bool _choosedFreeTrial => (_redirectToWebsiteWindow.TryFreeWink || _demoTimerExpiredWindow.TryFreeWink) && _subscriptionChecked == false;
@@ -42,22 +45,27 @@ namespace Agava.Wink
 
         public event Action SunbscriptionBuyed;
 
-        internal void Construct(GameOrientation gameOrientation, WinkWebViewURLHandler winkWebViewURLHandler)
+        internal void Construct(GameOrientation gameOrientation, WinkWebViewURLHandler winkWebViewURLHandler, DemoTimer demoTimer, ScreenshotProtector screenshotProtector, ICoroutine coroutine, string storeName, AppMetricaInfo appMetricaInfo)
         {
             _winkWebViewURLHandler = winkWebViewURLHandler ?? throw new ArgumentNullException(nameof(winkWebViewURLHandler));
+            _gameOrientation = gameOrientation ?? throw new ArgumentNullException(nameof(gameOrientation));
+            _screenshotProtector = screenshotProtector ?? throw new ArgumentNullException(nameof(screenshotProtector));
 
-            _orientationСhangeWindow.Construct(gameOrientation, _noEnternetWindow);
+            _orientationСhangeWindow.Construct(_gameOrientation, _noEnternetWindow);
             _subscriptionCheckWindow.Construct(_noEnternetWindow);
             _webViewPresenter.Construct(this, OpenHelloAfterCloseWebView, ConfirmPurchaseSubscriptionOnWebView);
+            coroutine.StartCoroutine(_rewardContinueWindowPresenter.Construct(demoTimer, storeName, appMetricaInfo));
 
             _subscriptionCheckWindow.LoadingStarted += OnLoadingStarted;
             _subscriptionCheckWindow.LoadingCompleted += OnLoadingCompleted;
+            _rewardContinueWindowPresenter.RewardSuccessed += OnRewardSuccessed;
         }
 
         internal void Dispose()
         {
             _subscriptionCheckWindow.LoadingStarted -= OnLoadingStarted;
             _subscriptionCheckWindow.LoadingCompleted -= OnLoadingCompleted;
+            _rewardContinueWindowPresenter.RewardSuccessed -= OnRewardSuccessed;
         }
 
         internal void OpenSignInWindow(Action closeCallback = null) => _signInWindow.Enable(closeCallback);
@@ -73,6 +81,13 @@ namespace Agava.Wink
             _enterCodeWindow.ResetCodeTimer();
             _redirectToWebsiteWindow.ResetFreeChoise();
             _demoTimerExpiredWindow.Enable(closeButton);
+        }
+
+        internal void OpenRewardWindow()
+        {
+            _rewardContinueWindowPresenter.Enable();
+            _redirectToWebsiteWindow.Disable();
+            _helloWOAccessWindow.Disable();
         }
 
         internal void OpenDeleteAccountWindow(Action onDeleteAccount) => _deleteAccountWindow.Enable(onDeleteAccount);
@@ -102,6 +117,8 @@ namespace Agava.Wink
         internal void ChangeDemoModeOption(bool enabled)
         {
             _redirectToWebsiteWindow.TryShowCloseButton(enabled: enabled);
+            _redirectToWebsiteWindow.TryShowRewardButton(enabled: enabled);
+            _demoTimerExpiredWindow.TryShowRewardButton(enabled: enabled);
             _helloWOAccessWindow.TryShowCloseButton(enabled: enabled);
         }
 
@@ -150,6 +167,16 @@ namespace Agava.Wink
         {
             OpenHelloWindowWOAccess();
             _subscriptionCheckWindow.Disable();
+        }
+
+        private void OnRewardSuccessed()
+        {
+            CloseAllWindows(null);
+
+            if (_gameOrientation.NeedChangeOrientation)
+                _gameOrientation.SetLandscapeOrientation();
+
+            _screenshotProtector.TryEnableScreenshots();
         }
     }
 }

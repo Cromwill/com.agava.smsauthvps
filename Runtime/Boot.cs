@@ -5,6 +5,7 @@ using SmsAuthAPI.Program;
 using UnityEngine.Scripting;
 using AdsAppView.Utility;
 using SmsAuthAPI.Utility;
+using KinDzaDzaGames.AdvertisementPlugin;
 
 namespace Agava.Wink
 {
@@ -22,6 +23,8 @@ namespace Agava.Wink
         [SerializeField] private SceneLoader _sceneLoader;
         [SerializeField] private LoadingProgressBar _loadingProgressBar;
         [SerializeField] private bool _restartAfterAuth = true;
+        [SerializeField] private AdvertisementBoot _advertisementBoot;
+        [SerializeField] private AppMetricaInfo _appMetricaInfo;
 
         private Coroutine _signInProcess;
         private PreloadService _preloadService;
@@ -52,19 +55,20 @@ namespace Agava.Wink
             _preloadService = new(_winkSignInHandlerUI, _buildVersionHolder.BundleId, _buildVersionHolder.StoreName);
             _winkAccessManager.Initialize();
             _winkAccessManager.AuthorizationSuccessfully += OnSuccessfully;
+            _winkSignInHandlerUI.Construct(_buildVersionHolder.StoreName.ToString(), _appMetricaInfo);
             yield return _preloadService.Preparing();
 
             if (_preloadService.IsPluginAwailable)
             {
-                yield return _winkSignInHandlerUI.Initialize();
-
                 SmsAuthApi.DownloadCloudSavesProgress += OnDownloadCloudSavesProgress;
 
                 yield return _winkAccessManager.Construct();
                 _winkSignInHandlerUI.StartService(_winkAccessManager);
-                _winkSignInHandlerUI.Construct();
                 yield return SheetRemoteConfigs.Initialize();
                 yield return _winkAccessManager.TryQuickAccess();
+                yield return _advertisementBoot.Construct(vip: WinkAccessManager.Instance.HasAccess || WinkAccessManager.Instance.HasTempAccess, _buildVersionHolder.BundleId, _buildVersionHolder.StoreName.ToString(), Application.identifier, _preloadService.ActualPlatform);
+
+                _winkSignInHandlerUI.DownloadRemoteSettings();
                 _winkSignInHandlerUI.SetRemoteTexts();
 
                 _signInProcess = StartCoroutine(OnStarted());
@@ -85,7 +89,6 @@ namespace Agava.Wink
             else
             {
                 _winkSignInHandlerUI.TrySetCorrectOrientation();
-                yield return _winkSignInHandlerUI.Initialize();
                 _loadingProgressBar.Disable();
                 _sceneLoader.LoadGameScene();
             }
@@ -126,6 +129,7 @@ namespace Agava.Wink
             }
 
             _signInProcess = null;
+            AdvertisementController.Instance?.StartInterstitialTimer();
         }
 
         private void OnSuccessfully()

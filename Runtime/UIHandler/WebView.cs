@@ -4,16 +4,19 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
+using System.Collections.Generic;
 
 public class WebView : MonoBehaviour
 {
     [SerializeField] private WebViewObject _webViewObject;
     [SerializeField] private RectTransform _container;
     [SerializeField] private Image _loadingImage;
+    [SerializeField] private List<string> _balckUrlList;
 
     private IWebViewLoader _webViewLoader;
     private bool _isLoaded;
     private bool _isOpened;
+    private string _targetUrl;
 
     public bool Initialized => _webViewObject.IsInitialized();
 
@@ -47,6 +50,7 @@ public class WebView : MonoBehaviour
 
         _webViewLoader = webViewLoader;
         _webViewObject.LoadURL(url.Replace(" ", "%20"));
+        _targetUrl = url.Replace(" ", "%20");
     }
 
     public void ShowPage(string cachePagePath)
@@ -89,9 +93,25 @@ public class WebView : MonoBehaviour
             started: (msg) =>
             {
                 Debug.Log($"WebView: webview message started - {msg}!");
+
 #if UNITY_ANDROID
                 _webViewObject.Resume();
 #endif
+                if (IsNotAllowedUrl(msg, out string blacklistedUrl))
+                {
+                    Debug.LogWarning($"WebView: Check black list");
+
+                    if (string.IsNullOrEmpty(_targetUrl) == false)
+                    {
+                        Debug.LogWarning($"WebView: Redirect and load last url - {_targetUrl}");
+                        _webViewObject.LoadURL(_targetUrl);
+                        WebViewPresenter.OpenBrowser(blacklistedUrl);
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"WebView: No Redirect");
+                }
             },
             ld: (msg) =>
             {
@@ -146,6 +166,29 @@ public class WebView : MonoBehaviour
 
         Setsettings();
         _isLoaded = true;
+    }
+
+    private bool IsNotAllowedUrl(string msg, out string blackListedUrl)
+    {
+        blackListedUrl = null;
+        bool isNotAllowed = false;
+
+        foreach (string url in _balckUrlList)
+        {
+            blackListedUrl = url;
+
+            if (msg.Contains(url))
+            {
+                Application.OpenURL(msg);
+                isNotAllowed = true;
+            }
+            else
+            {
+                isNotAllowed = false;
+            }
+        }
+
+        return isNotAllowed;
     }
 
     private void Setsettings()

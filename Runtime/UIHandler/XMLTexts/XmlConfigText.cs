@@ -2,14 +2,13 @@ using TMPro;
 using UnityEngine;
 using SmsAuthAPI.Utility;
 using System.Collections.Generic;
-using System;
 
 namespace Agava.Wink
 {
     public class XmlConfigText : MonoBehaviour
     {
-        private const string LineTransitionPattern = "end";
-        private const string LinkPattern = "<link=\"{0}\">{1}</link>";
+        protected const string LineTransitionPattern = "end";
+        protected const string LinkPattern = "<link=\"{0}\">{1}</link>";
 
         [SerializeField] private TMP_Text _text;
         [SerializeField] private XMLKeys _xMLKey;
@@ -18,7 +17,7 @@ namespace Agava.Wink
         [SerializeField] private bool _isLink;
         [SerializeField] private string _linkName;
 
-        public void FillText()
+        public virtual void FillText()
         {
             if (SheetRemoteConfigs.Texts != null)
             {
@@ -31,7 +30,7 @@ namespace Agava.Wink
             }
             else
             {
-                Debug.Log("XML TEXT: download remote failed, used prepared texts.");
+                Debug.Log($"XML TEXT: download remote failed, used prepared texts for key = {_xMLKey}, value = {_xMLValue}.");
 
                 if (_isLink == false)
                     _text.text = _fallbackText.Replace($"{{{LineTransitionPattern}}}", "\n");
@@ -39,5 +38,7 @@ namespace Agava.Wink
                     _text.text = string.Format(LinkPattern, _linkName, _fallbackText.Replace($"{{{LineTransitionPattern}}}", "\n"));
             }
         }
+
+        public void ChangeText(string text) => _text.text = text;
     }
 }

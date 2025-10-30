@@ -3,7 +3,6 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Scripting;
 using System.Collections.Generic;
-using AdsAppView.DTO;
 
 namespace Agava.Wink
 {
@@ -22,12 +21,16 @@ namespace Agava.Wink
         [SerializeField] private InputWindowPresenter _enterCodeWindow;
         [SerializeField] private WinkProfileWindow _winkProfileWindow;
         [SerializeField] private DeleteAccountWindowPresenter _deleteAccountWindow;
-        [SerializeField] private WinkInfoWindowPresenter _winkInfoWindow;
+        [SerializeField] private TurnOffAdWindowPresenter _verticalTurnOffAdWindow;
+        [SerializeField] private TurnOffAdWindowPresenter _horizontalTurnOffAdWindow;
+        [SerializeField] private WinkInfoVericalWindowPresenter _winkInfoVericalWindowPresenter;
+        [SerializeField] private WinkInfoHorizontalWindowPresenter _winkInfoHorizontalWindowPresenter;
         [SerializeField] private SubscriptionCheckWindowPresenter _subscriptionCheckWindow;
         [SerializeField] private HelloWOAccessWindowPresenter _helloWOAccessWindow;
         [SerializeField] private OrientationСhangeWindowPresenter _orientationСhangeWindow;
         [SerializeField] private WebViewPresenter _webViewPresenter;
         [SerializeField] private RewardContinueWindowPresenter _rewardContinueWindowPresenter;
+        [SerializeField] private RewardSettings _rewardSettings;
         [Header("All UI Windows")]
         [SerializeField] private List<WindowPresenter> _windows;
 
@@ -35,6 +38,7 @@ namespace Agava.Wink
         private GameOrientation _gameOrientation;
         private ScreenshotProtector _screenshotProtector;
         private bool _subscriptionChecked = false;
+        private bool _useAdMechanics = false;
 
         private bool _choosedFreeTrial => (_redirectToWebsiteWindow.TryFreeWink || _demoTimerExpiredWindow.TryFreeWink) && _subscriptionChecked == false;
 
@@ -44,6 +48,7 @@ namespace Agava.Wink
         public bool Loaded { get; private set; } = false;
 
         public event Action SunbscriptionBuyed;
+        public event Action WebViewClosed;
 
         internal void Construct(GameOrientation gameOrientation, WinkWebViewURLHandler winkWebViewURLHandler, DemoTimer demoTimer, ScreenshotProtector screenshotProtector, ICoroutine coroutine, string storeName, AppMetricaInfo appMetricaInfo, SmsRetrieverManager smsRetrieverManager)
         {
@@ -54,7 +59,7 @@ namespace Agava.Wink
             _orientationСhangeWindow.Construct(_gameOrientation, _noEnternetWindow);
             _subscriptionCheckWindow.Construct(_noEnternetWindow);
             _webViewPresenter.Construct(this, OpenHelloAfterCloseWebView, ConfirmPurchaseSubscriptionOnWebView);
-            coroutine.StartCoroutine(_rewardContinueWindowPresenter.Construct(demoTimer, storeName, appMetricaInfo));
+            coroutine.StartCoroutine(_rewardContinueWindowPresenter.Construct(demoTimer, storeName, appMetricaInfo, _rewardSettings));
             _enterCodeWindow.Construct(smsRetrieverManager);
 
             _subscriptionCheckWindow.LoadingStarted += OnLoadingStarted;
@@ -68,6 +73,12 @@ namespace Agava.Wink
             _subscriptionCheckWindow.LoadingStarted -= OnLoadingStarted;
             _subscriptionCheckWindow.LoadingCompleted -= OnLoadingCompleted;
             _rewardContinueWindowPresenter.RewardSuccessed -= OnRewardSuccessed;
+        }
+
+        internal void ApplyTurnOffABTests()
+        {
+            _verticalTurnOffAdWindow.Construct(_rewardSettings);
+            _horizontalTurnOffAdWindow.Construct(_rewardSettings);
         }
 
         internal void OpenSignInWindow(Action closeCallback = null) => _signInWindow.Enable(closeCallback);
@@ -108,7 +119,7 @@ namespace Agava.Wink
             else
             {
                 if(_choosedFreeTrial)
-                    _winkInfoWindow.Enable();
+                    _winkInfoVericalWindowPresenter.Enable();
                 else
                     OpenHelloWindowWOAccess();
             }
@@ -138,7 +149,8 @@ namespace Agava.Wink
 
         internal void FillTextFields()
         {
-            _winkInfoWindow.FillRemoteTexts();
+            _winkInfoVericalWindowPresenter.FillRemoteTexts();
+            _winkInfoHorizontalWindowPresenter.FillRemoteTexts();
             _helloWOAccessWindow.FillRemoteTexts();
             _redirectToWebsiteWindow.FillRemoteTexts();
             _demoTimerExpiredWindow.FillRemoteTexts();
@@ -147,12 +159,33 @@ namespace Agava.Wink
         internal bool HasOpenedWindow(WindowType type)
             => _windows.Any(window => window.Type == type && window.isActiveAndEnabled == true);
 
-        internal void ConfirmPurchaseSubscriptionOnWebView()
+        internal void OpenAdOffOffer(bool isHorizontal)
         {
-            OpenHelloWindow(hasAccess: true);
-            SunbscriptionBuyed?.Invoke();
-            _subscriptionCheckWindow.Disable();
+            SetAdOption(adOption: true);
+
+            if (isHorizontal)
+                _winkInfoHorizontalWindowPresenter.EnableAdVariant();
+            else
+                _winkInfoVericalWindowPresenter.EnableAdVariant();
         }
+
+        internal void EnableAdOfferInfo()
+        {
+            _subscriptionChecked = false;
+            _redirectToWebsiteWindow.EnableFreeChoise();
+            _demoTimerExpiredWindow.EnableFreeChoise();
+            _winkInfoVericalWindowPresenter.InstallAdTexts();
+        }
+
+        internal void CloseAdOffer()
+        {
+            CloseWindow(_gameOrientation.NeedChangeOrientation ? WindowType.TurnOffAdHorizontal : WindowType.TurnOffAdVertical);
+            _winkInfoVericalWindowPresenter.Disable();
+            _winkInfoHorizontalWindowPresenter.Disable();
+            SetAdOption(adOption: false);
+        }
+
+        internal void SetAdOption(bool adOption) => _useAdMechanics = adOption;
 
         private WindowPresenter GetWindowByType(WindowType type)
             => _windows.FirstOrDefault(window => window.Type == type);
@@ -171,7 +204,22 @@ namespace Agava.Wink
 
         private void OpenHelloAfterCloseWebView()
         {
-            OpenHelloWindowWOAccess();
+            if (_useAdMechanics == false)
+            {
+                OpenHelloWindowWOAccess();
+                _subscriptionCheckWindow.Disable();
+            }
+            else
+            {
+                _subscriptionCheckWindow.Disable();
+                WebViewClosed?.Invoke();
+            }
+        }
+
+        private void ConfirmPurchaseSubscriptionOnWebView()
+        {
+            OpenHelloWindow(hasAccess: true);
+            SunbscriptionBuyed?.Invoke();
             _subscriptionCheckWindow.Disable();
         }
 

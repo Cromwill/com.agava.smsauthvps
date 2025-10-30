@@ -35,11 +35,13 @@ namespace Agava.Wink
         [SerializeField] private Button[] _signInButtons;
         [SerializeField] private Button[] _tryWinkButtons;
         [SerializeField] private Button[] _switchOrientationButtons;
+        [SerializeField] private Button[] _openAdOfferButtons;
         [SerializeField] private Button[] _subscriptionCheckButtons;
+        [SerializeField] private Button[] _closeAdOfferButtons;
         [SerializeField] private Button[] _closeButtonsFromSettings;
         [SerializeField] private Button[] _rewardButtons;
         [SerializeField] private Button _subscribeButtonRewardWindow;
-        [SerializeField] private Button _closeWinkInfoButton;
+        [SerializeField] private Button _closeSignInWindowButton;
         [Header("Analytics buttons")]
         [SerializeField] private AnalyticsSender _analyticsSender;
         [Header("Factory components")]
@@ -53,7 +55,10 @@ namespace Agava.Wink
 
         private SignInFuctionsUI _signInFuctionsUI;
         private WinkAccessManager _winkAccessManager;
-        private bool _logInFromSettings = false;
+        private InterstitialPlayer _interstitialPlayer;
+        private bool _loginFromSettings = false;
+        private bool _useAdWindows = false;
+        private bool _forcedChangeOrientation = false;
 
         public static WinkSignInHandlerUI Instance { get; private set; }
 
@@ -93,8 +98,14 @@ namespace Agava.Wink
             foreach (var button in _switchOrientationButtons)
                 button.onClick.RemoveListener(OpenChangeOrientationWindow);
 
+            foreach (var button in _openAdOfferButtons)
+                button.onClick.RemoveListener(OpenAdOfferWindow);
+
             foreach (var button in _subscriptionCheckButtons)
                 button.onClick.RemoveListener(CheckSubscription);
+
+            foreach (var button in _closeAdOfferButtons)
+                button.onClick.RemoveListener(CloseAdOfferWindow);
 
             foreach (var button in _closeButtonsFromSettings)
                 button.onClick.RemoveListener(ContinueGame);
@@ -103,7 +114,7 @@ namespace Agava.Wink
                 button.onClick.RemoveListener(OpenRewardWindow);
 
             _subscribeButtonRewardWindow.onClick.RemoveListener(RedirectToSubscribe);
-            _closeWinkInfoButton.onClick.RemoveListener(OnCloseWinkInfoButtonClick);
+            _closeSignInWindowButton.onClick.RemoveListener(CloseSignInWindow);
 
             _unlinkDeviceViewContainer.DeviceRemoved -= OnUnlinkButtonClicked;
 
@@ -112,10 +123,13 @@ namespace Agava.Wink
             _winkAccessManager.ResetLogin -= OpenSignWindow;
             _winkAccessManager.LimitReached -= OnLimitReached;
             _winkAccessManager.SignInSuccessfully -= OnSignInSuccessfully;
+            _winkAccessManager.AuthorizationSuccessfully -= OnAuthorizationSuccessfully;
+            _interstitialPlayer.OpenAdOffer -= OpenTurnOffAdPanel;
             _demoTimer.TimerExpired -= OnTimerExpired;
             _demoTimer.FirstChecked -= OnTimerFirstChecked;
             _demoTimer.Dispose();
             _notifyWindowHandler.SunbscriptionBuyed -= OnSunbscriptionBuyed;
+            _notifyWindowHandler.WebViewClosed -= TurnOffAdMode;
             _notifyWindowHandler.Dispose();
             _analyticsSender.Dispose();
         }
@@ -142,6 +156,8 @@ namespace Agava.Wink
 
             while (rewardConfigs.Initialized == false)
                 yield return null;
+
+            _notifyWindowHandler.ApplyTurnOffABTests();
         }
 
         public void OpenProcessOnWindow() => _notifyWindowHandler.OpenWindow(WindowType.ProccessOn);
@@ -153,13 +169,14 @@ namespace Agava.Wink
             _signInFuctionsUI.SetRemoteConfig();
         }
 
-        public void StartService(WinkAccessManager winkAccessManager)
+        public void StartService(WinkAccessManager winkAccessManager, InterstitialPlayer interstitialPlayer)
         {
             if (Instance == null)
                 Instance = this;
 
             _signInFuctionsUI = new(_notifyWindowHandler, _demoTimer, winkAccessManager, this, this);
             _winkAccessManager = winkAccessManager;
+            _interstitialPlayer = interstitialPlayer;
             _analyticsSender.Construct();
 
             _enterCodeContinueButton.onClick.AddListener(OnEnterCodeContinueClicked);
@@ -174,8 +191,14 @@ namespace Agava.Wink
             foreach (var button in _switchOrientationButtons)
                 button.onClick.AddListener(OpenChangeOrientationWindow);
 
+            foreach (var button in _openAdOfferButtons)
+                button.onClick.AddListener(OpenAdOfferWindow);
+
             foreach (var button in _subscriptionCheckButtons)
                 button.onClick.AddListener(CheckSubscription);
+
+            foreach (var button in _closeAdOfferButtons)
+                button.onClick.AddListener(CloseAdOfferWindow);
 
             foreach (var button in _closeButtonsFromSettings)
                 button.onClick.AddListener(ContinueGame);
@@ -184,7 +207,7 @@ namespace Agava.Wink
                 button.onClick.AddListener(OpenRewardWindow);
 
             _subscribeButtonRewardWindow.onClick.AddListener(RedirectToSubscribe);
-            _closeWinkInfoButton.onClick.AddListener(OnCloseWinkInfoButtonClick);
+            _closeSignInWindowButton.onClick.AddListener(CloseSignInWindow);
 
             _unlinkDeviceViewContainer.DeviceRemoved += OnUnlinkButtonClicked;
 
@@ -194,9 +217,11 @@ namespace Agava.Wink
             _winkAccessManager.LimitReached += OnLimitReached;
             _winkAccessManager.SignInSuccessfully += OnSignInSuccessfully;
             _winkAccessManager.AuthorizationSuccessfully += OnAuthorizationSuccessfully;
+            _interstitialPlayer.OpenAdOffer += OpenTurnOffAdPanel;
             _demoTimer.TimerExpired += OnTimerExpired;
             _demoTimer.FirstChecked += OnTimerFirstChecked;
             _notifyWindowHandler.SunbscriptionBuyed += OnSunbscriptionBuyed;
+            _notifyWindowHandler.WebViewClosed += TurnOffAdMode;
         }
 
         public void OpenStartWindow() => OpenSubscriptionWindow();
@@ -230,7 +255,7 @@ namespace Agava.Wink
         {
             _screenshotProtector.TryDisableScreenshots();
             Action action = null;
-            _logInFromSettings = true;
+            _loginFromSettings = true;
 
             if (_winkAccessManager.Authenficated)
             {
@@ -258,10 +283,10 @@ namespace Agava.Wink
 
         private void ContinueGame()
         {
-            if (_logInFromSettings)
+            if (_loginFromSettings)
             {
                 _screenshotProtector.TryEnableScreenshots();
-                _logInFromSettings = false;
+                _loginFromSettings = false;
 
                 if (_gameOrientation.NeedChangeOrientation)
                 {
@@ -295,7 +320,7 @@ namespace Agava.Wink
         public void OnDeleteAccountButtonClick()
         {
             _screenshotProtector.TryDisableScreenshots();
-            _logInFromSettings = true;
+            _loginFromSettings = true;
             _gameOrientation.SaveGameOrientation();
             AnalyticsWinkService.SendDeleteAccountButtonClickOnSetting();
 
@@ -309,6 +334,7 @@ namespace Agava.Wink
                         onComplete: (resultSuccess) =>
                         {
                             AnalyticsWinkService.SendDeleteWindow();
+                            _interstitialPlayer?.Continue();
 
                             if (resultSuccess == false)
                                 _notifyWindowHandler.OpenWindow(WindowType.Fail);
@@ -330,6 +356,60 @@ namespace Agava.Wink
         {
             if (_gameOrientation.NeedChangeOrientation)
                 _gameOrientation.SetLandscapeOrientation();
+        }
+
+        public void OpenTurnOffAdPanel()
+        {
+            _useAdWindows = true;
+            _gameOrientation.SaveGameOrientation();
+            _screenshotProtector.TryDisableScreenshots();
+            _interstitialPlayer?.Suspend();
+            _analyticsSender.SetAdInfo(adEvents: _useAdWindows);
+            _notifyWindowHandler.EnableAdOfferInfo();
+
+            StartCoroutine(ActionWithDelay(ChangeOrientationDelay, () => _notifyWindowHandler.OpenWindow(_gameOrientation.NeedChangeOrientation ? WindowType.TurnOffAdHorizontal : WindowType.TurnOffAdVertical)));
+
+            AdvertisementController.Instance?.SuspendDisplayBanner(this);
+            AdvertisementController.Instance?.AddInterstitialBlocker(this);
+        }
+
+        private void OpenAdOfferWindow()
+        {
+            _notifyWindowHandler.OpenAdOffOffer(isHorizontal: _gameOrientation.NeedChangeOrientation);
+            _notifyWindowHandler.CloseWindow(_gameOrientation.NeedChangeOrientation ? WindowType.TurnOffAdHorizontal : WindowType.TurnOffAdVertical);
+        }
+
+        private void CloseAdOfferWindow()
+        {
+            if (_useAdWindows)
+            {
+                TurnOffAdMode();
+            }
+            else
+            {
+#if TEST_TEMP_SUBSCRIPTION
+                _notifyWindowHandler.ConfirmPurchaseSubscriptionOnWebView();
+#else
+                _notifyWindowHandler.OpenHelloWindowWOAccess();
+                _notifyWindowHandler.CloseWindow(WindowType.WinkInfoVertical);
+#endif
+            }
+        }
+
+        private void TurnOffAdMode()
+        {
+            _useAdWindows = false;
+            _analyticsSender.SetAdInfo(adEvents: _useAdWindows);
+            _notifyWindowHandler.CloseAdOffer();
+            _interstitialPlayer?.Continue();
+            _screenshotProtector.TryEnableScreenshots();
+
+            if (_forcedChangeOrientation && _gameOrientation.NeedChangeOrientation)
+            {
+                _forcedChangeOrientation = false;
+                _gameOrientation.SetLandscapeOrientationPosibility();
+                _gameOrientation.SetSavedOrientation();
+            }
         }
 
         private void OnSignInContinueClicked()
@@ -379,23 +459,78 @@ namespace Agava.Wink
         {
             string number = "N/A";
 
-            if (UnityEngine.PlayerPrefs.HasKey(_winkAccessManager.PhoneNumber))
-                number = PhoneNumber.FormatNumber(UnityEngine.PlayerPrefs.GetString(_winkAccessManager.PhoneNumber));
+            if (PlayerPrefs.HasKey(_winkAccessManager.PhoneNumber))
+                number = PhoneNumber.FormatNumber(PlayerPrefs.GetString(_winkAccessManager.PhoneNumber));
 
             foreach (TextPlaceholder placeholder in _phoneNumberPlaceholders)
                 placeholder.ReplaceValue(number);
         }
 
-        private void OnCloseWinkInfoButtonClick()
+        private void CloseSignInWindow()
         {
-#if TEST_TEMP_SUBSCRIPTION
-            _notifyWindowHandler.ConfirmPurchaseSubscriptionOnWebView();
-#else
-            _notifyWindowHandler.OpenHelloWindowWOAccess();
-#endif
+            if (_useAdWindows)
+            {
+                _forcedChangeOrientation = false;
+
+                if (_gameOrientation.NeedChangeOrientation)
+                {
+                    StartCoroutine(ActionWithDelay(ChangeOrientationDelay, () => TurnOffAdMode()));
+                    _gameOrientation.SetLandscapeOrientationPosibility();
+                    _gameOrientation.SetSavedOrientation();
+                }
+                else
+                {
+                    TurnOffAdMode();
+                }
+            }
+
+            _notifyWindowHandler.CloseWindow(WindowType.SignIn);
         }
 
-        private void CheckSubscription() => _notifyWindowHandler.OpenWindow(WindowType.SubscriptionCheck);
+        private void CheckSubscription()
+        {
+            if (_winkAccessManager.Authenficated)
+            {
+                _notifyWindowHandler.OpenWindow(WindowType.SubscriptionCheck);
+                _notifyWindowHandler.CloseWindow(WindowType.WinkInfoVertical);
+
+                if (_useAdWindows)
+                {
+                    _notifyWindowHandler.CloseAdOffer();
+                    _notifyWindowHandler.SetAdOption(adOption: true);
+
+                    if (_gameOrientation.NeedChangeOrientation)
+                    {
+                        _forcedChangeOrientation = true;
+                        _gameOrientation.SaveGameOrientation();
+                        _gameOrientation.SetPortraitOrientation();
+                    }
+                }
+            }
+            else
+            {
+                if (_gameOrientation.NeedChangeOrientation)
+                {
+                    _forcedChangeOrientation = true;
+
+                    StartCoroutine(ActionWithDelay(ChangeOrientationDelay, () =>
+                    {
+                        _notifyWindowHandler.OpenSignInWindow();
+                        _notifyWindowHandler.CloseAdOffer();
+                        _notifyWindowHandler.SetAdOption(adOption: true);
+                    }));
+
+                    _gameOrientation.SaveGameOrientation();
+                    _gameOrientation.SetPortraitOrientation();
+                }
+                else
+                {
+                    _notifyWindowHandler.OpenSignInWindow();
+                    _notifyWindowHandler.CloseAdOffer();
+                    _notifyWindowHandler.SetAdOption(adOption: true);
+                }
+            }
+        }
 
         private async void OnTimerExpired()
         {
@@ -439,6 +574,11 @@ namespace Agava.Wink
 
         private void OnSunbscriptionBuyed()
         {
+            _forcedChangeOrientation = false;
+
+            if (_useAdWindows)
+                TurnOffAdMode();
+
             _demoTimer.AddTempSubsDemoTime();
             _notifyWindowHandler.ChangeDemoModeOption(enabled: _demoTimer.Expired == false);
             _winkAccessManager.ActivateTempSubscription();

@@ -8,10 +8,13 @@ namespace Agava.Wink
     [Serializable, Preserve]
     public class AnalyticsSender
     {
-        [SerializeField] private Button[] _haveSubscriptionButtons;
-        [SerializeField] private Button[] _tryFreeTrialButtons;
+        [SerializeField] private Button _checkSubscriptionButton;
+        [SerializeField] private Button _closeOfferWinkKidsButton;
+        [SerializeField] private Button _closeSubscribeProfileWindowButton;
+        //[SerializeField] private Button[] _haveSubscriptionButtons;
+        //[SerializeField] private Button[] _tryFreeTrialButtons;
         [SerializeField] private Button[] _offerWinkKidsButtons;
-        [SerializeField] private Button _closeStartWindowButton;
+        //[SerializeField] private Button _closeStartWindowButton;
         [SerializeField] private Button _subscribeWinkButton;
         [SerializeField] private Button _deleteAccountButton;
         [SerializeField] private Button _subscriptionManagementButton;
@@ -27,16 +30,20 @@ namespace Agava.Wink
 
         public void Construct()
         {
-            foreach (var button in _haveSubscriptionButtons)
+            /*foreach (var button in _haveSubscriptionButtons)
                 button.onClick.AddListener(SendHaveSubscriptionButtonClick);
 
             foreach (var button in _tryFreeTrialButtons)
-                button.onClick.AddListener(SendTryFreeTrialButtonClick);
+                button.onClick.AddListener(SendTryFreeTrialButtonClick);*/
+
+            _checkSubscriptionButton.onClick.AddListener(CheckSubscriptionButtonClick);
+            _closeOfferWinkKidsButton.onClick.AddListener(CloseOfferWinkKidsButtonClick);
+            _closeSubscribeProfileWindowButton.onClick.AddListener(CloseSubscribeProfileWindowButtonClick);
 
             foreach (var button in _offerWinkKidsButtons)
                 button.onClick.AddListener(SendOfferWinkKidsButtonClick);
 
-            _closeStartWindowButton.onClick.AddListener(SendCloseStartWindowButtonClick);
+            //_closeStartWindowButton.onClick.AddListener(SendCloseStartWindowButtonClick);
             _subscribeWinkButton.onClick.AddListener(SendSubscribeWinkButtonClick);
             _deleteAccountButton.onClick.AddListener(SendDeleteAccountButtonClick);
             _subscriptionManagementButton.onClick.AddListener(SendSubscriptionManagementButtonClick);
@@ -61,16 +68,20 @@ namespace Agava.Wink
 
         public void Dispose()
         {
-            foreach (var button in _haveSubscriptionButtons)
+            /*foreach (var button in _haveSubscriptionButtons)
                 button.onClick.RemoveListener(SendHaveSubscriptionButtonClick);
 
             foreach (var button in _tryFreeTrialButtons)
-                button.onClick.RemoveListener(SendTryFreeTrialButtonClick);
+                button.onClick.RemoveListener(SendTryFreeTrialButtonClick);*/
+
+            _checkSubscriptionButton.onClick.RemoveListener(CheckSubscriptionButtonClick);
+            _closeOfferWinkKidsButton.onClick.RemoveListener(CloseOfferWinkKidsButtonClick);
+            _closeSubscribeProfileWindowButton.onClick.RemoveListener(CloseSubscribeProfileWindowButtonClick);
 
             foreach (var button in _offerWinkKidsButtons)
                 button.onClick.RemoveListener(SendOfferWinkKidsButtonClick);
 
-            _closeStartWindowButton.onClick.RemoveListener(SendCloseStartWindowButtonClick);
+            //_closeStartWindowButton.onClick.RemoveListener(SendCloseStartWindowButtonClick);
             _subscribeWinkButton.onClick.RemoveListener(SendSubscribeWinkButtonClick);
             _deleteAccountButton.onClick.RemoveListener(SendDeleteAccountButtonClick);
             _subscriptionManagementButton.onClick.RemoveListener(SendSubscriptionManagementButtonClick);
@@ -95,9 +106,11 @@ namespace Agava.Wink
 
         public void SetAdInfo(bool adEvents) => _adEvents = adEvents;
 
-        private void SendHaveSubscriptionButtonClick() => AnalyticsWinkService.SendHaveWinkButtonClick();
-        private void SendTryFreeTrialButtonClick() => AnalyticsWinkService.SendPayWallRedirect();
-        private void SendCloseStartWindowButtonClick() => AnalyticsWinkService.SendCloseStartWindow();
+        private void CheckSubscriptionButtonClick() => AnalyticsWinkService.SendCheckSubscriptionButtonClick();
+        private void CloseSubscribeProfileWindowButtonClick() => AnalyticsWinkService.SendCloseSubscribeProfileWindow();
+        //private void SendHaveSubscriptionButtonClick() => AnalyticsWinkService.SendHaveWinkButtonClick();
+        //private void SendTryFreeTrialButtonClick() => AnalyticsWinkService.SendPayWallRedirect();
+        //private void SendCloseStartWindowButtonClick() => AnalyticsWinkService.SendCloseStartWindow();
         private void SendSubscribeWinkButtonClick() => AnalyticsWinkService.SendSubscribeWinkButtonClick();
         private void SendDeleteAccountButtonClick() => AnalyticsWinkService.SendDeleteAccountButtonClick();
         private void SendSubscriptionManagementButtonClick() => AnalyticsWinkService.SendSubscriptionManagementButtonClick();
@@ -106,6 +119,13 @@ namespace Agava.Wink
         private void SendTurnOffAdOnDisableWindowButtonClick() => AnalyticsWinkService.SendTurnOffAdOnDisableWindowButtonClick();
         private void SendLearnMoreSubsButtonClick() => AnalyticsWinkService.SendLearnMoreSubsButtonClick();
         private void SendCloseTurnOffAdWindowButtonClick() => AnalyticsWinkService.SendCloseTurnOffAdWindowButtonClick();
+
+        private void CloseOfferWinkKidsButtonClick()
+        {
+            if (_adEvents == false)
+                AnalyticsWinkService.SendCloseOfferWinkKids();
+        }
+
         private void SendOfferWinkKidsButtonClick()
         {
             if(_adEvents == false)

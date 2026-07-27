@@ -10,6 +10,7 @@ using SmsAuthAPI.Program;
 using UnityEngine.Networking;
 using UnityEngine.Scripting;
 using UnityEngine.Windows;
+using Unity.VisualScripting.YamlDotNet.Core;
 
 namespace Agava.Wink
 {
@@ -54,6 +55,29 @@ namespace Agava.Wink
             if (response.statusCode == UnityWebRequest.Result.Success)
             {
                 Debug.Log($"#RequestHandler# User Datas send with {response.reasonPhrase}, data {response.body}");
+            }
+        }
+
+        internal async Task SendBackendAnalyticsData(string eventName, string phone, string deviceId, string sanId, DateTime eventTime, string platform, string version, string appmetricaDeviceId, string eventJson)
+        {
+            BackendAnalyticsData data = new()
+            {
+                event_name = eventName,
+                phone = phone,
+                device_id = deviceId,
+                san = sanId,
+                event_time = eventTime,
+                platform = platform,
+                version = version,
+                appmetrica_device_id = appmetricaDeviceId,
+                event_json = eventJson
+            };
+
+            Response response = await SmsAuthApi.SendBackendAnalyticsData(data);
+
+            if (response.statusCode == UnityWebRequest.Result.Success)
+            {
+                Debug.Log($"#RequestHandler# backend analytics data send with {response.reasonPhrase}, data {response.body}");
             }
         }
 

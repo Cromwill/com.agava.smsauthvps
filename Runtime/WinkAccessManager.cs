@@ -383,8 +383,6 @@ namespace Agava.Wink
 
         private void SendUserDatas(string phone, string deviceId)
         {
-            Debug.Log($"USER DATA: try send user info");
-            string _appmetricaDeviceId = string.Empty;
             IEnumerable<string> keys = new string[] { StartupParamsKey.AppMetricaDeviceIDHash };
 
             AppMetrica.RequestStartupParams(StartupParamsDelegateStartupParamsDelegate, keys);
@@ -395,8 +393,7 @@ namespace Agava.Wink
                     Debug.LogError("Appmetrica ERROR reason: " + errorReason);
 
                 string _appmetricaDeviceId = result.DeviceIdHash;
-                //_requestHandler.SendUserDatas(phone, deviceId, _appmetricaDeviceId);
-                Debug.Log($"USER DATA: phone = {phone}, deviceId = {deviceId}, Appmetrica device id = {_appmetricaDeviceId}");
+                _requestHandler.SendUserDatas(phone, deviceId, _appmetricaDeviceId);
             }
         }
     }

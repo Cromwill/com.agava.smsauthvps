@@ -10,7 +10,6 @@ using SmsAuthAPI.Program;
 using UnityEngine.Networking;
 using UnityEngine.Scripting;
 using UnityEngine.Windows;
-using Unity.VisualScripting.YamlDotNet.Core;
 
 namespace Agava.Wink
 {

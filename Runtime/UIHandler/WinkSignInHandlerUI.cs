@@ -67,8 +67,8 @@ namespace Agava.Wink
         public static WinkSignInHandlerUI Instance { get; private set; }
 
         public bool IsAnyWindowEnabled => _notifyWindowHandler.IsAnyWindowEnabled;
-        public bool InterstitialDisplayBlocked => IsAnyWindowEnabled;
-        public bool BannerDisplayBlocked => IsAnyWindowEnabled;
+        public bool InterstitialDisplayBlocked => IsAnyWindowEnabled || PaywallService.IsPending;
+        public bool BannerDisplayBlocked => IsAnyWindowEnabled || PaywallService.IsPending;
         public AppAuthenticator AppAuthenticator => _webViewURLHandler.AppAuthenticator;
 
         public event Action AllWindowsClosed;
@@ -132,7 +132,7 @@ namespace Agava.Wink
 
             if (_winkAccessManager == null) return;
 
-            _winkAccessManager.ResetLogin -= OpenSignWindow;
+            _winkAccessManager.ResetLogin -= OnResetLogin;
             _winkAccessManager.LimitReached -= OnLimitReached;
             _winkAccessManager.SignInSuccessfully -= OnSignInSuccessfully;
             _winkAccessManager.AuthorizationSuccessfully -= OnAuthorizationSuccessfully;
@@ -234,7 +234,7 @@ namespace Agava.Wink
 
             CloseAllWindows();
 
-            _winkAccessManager.ResetLogin += OpenSignWindow;
+            _winkAccessManager.ResetLogin += OnResetLogin;
             _winkAccessManager.LimitReached += OnLimitReached;
             _winkAccessManager.SignInSuccessfully += OnSignInSuccessfully;
             _winkAccessManager.AuthorizationSuccessfully += OnAuthorizationSuccessfully;
@@ -248,6 +248,8 @@ namespace Agava.Wink
         }
 
         public void OpenStartWindow() => OpenSubscriptionWindow();
+
+        public void OnResetLogin() => OpenSignWindow();
 
         public void OpenSignWindow()
         {
@@ -286,10 +288,50 @@ namespace Agava.Wink
 
         public void OpenWindow(WindowType type) => _notifyWindowHandler.OpenWindow(type);
 
+#if UNITY_EDITOR || TEST
+        /// <summary> Test: set the demo time that is left. </summary>
+        public void TestSetDemoTimeLeft(float seconds) => _demoTimer.TestSetTimeLeft(seconds);
+#endif
+
         public void CloseAllWindows() => _notifyWindowHandler.CloseAllWindows(AllWindowsClosed);
+
+        /// <summary>
+        ///     Paywall reached: the first window of the plugin over the game.
+        /// </summary>
+        internal void OpenPaywall(bool firstOpen)
+        {
+            _screenshotProtector.TryDisableScreenshots();
+
+            if (firstOpen)
+                _gameOrientation.SaveGameOrientation();
+
+            StartCoroutine(ActionWithDelay(ChangeOrientationDelay, OpenStartWindow));
+
+            if (_gameOrientation.NeedChangeOrientation)
+                _gameOrientation.SetPortraitOrientation();
+
+            AdvertisementController.Instance?.AddInterstitialBlocker(this);
+            AdvertisementController.Instance?.SuspendDisplayBanner(this);
+        }
+
+        /// <summary>
+        ///     Player is authorized and all windows of the paywall are closed: back to the game.
+        /// </summary>
+        internal void ClosePaywall()
+        {
+            _screenshotProtector.TryEnableScreenshots();
+            TrySetCorrectOrientation();
+        }
 
         public void OnWinkButtonClick()
         {
+            if (PaywallService.IsPending)
+            {
+                // The "sign in" button of the game menu passes the paywall.
+                PaywallService.Instance.ReachFromMenu();
+                return;
+            }
+
             _screenshotProtector.TryDisableScreenshots();
             Action action = null;
             _loginFromSettings = true;
@@ -407,6 +449,9 @@ namespace Agava.Wink
 
         public void OpenTurnOffAdPanel()
         {
+            if (PaywallService.IsPending)
+                return;
+
             _useAdWindows = true;
             _gameOrientation.SaveGameOrientation();
             _screenshotProtector.TryDisableScreenshots();
@@ -611,26 +656,41 @@ namespace Agava.Wink
 
             _notifyWindowHandler.ChangeDemoModeOption(enabled: false);
 
-            if (AdvertisementController.Instance != null && AdvertisementController.Instance.CanShowReward())
+            if (_winkAccessManager.Authenficated)
+            {
+                SetPhone();
+
+                if (AdvertisementController.Instance != null && AdvertisementController.Instance.CanShowReward())
+                    _notifyWindowHandler.OpenWindow(WindowType.RewardContinue);
+                else
+                    _notifyWindowHandler.OpenHelloWindowWOAccess();
+            }
+            else
+            {
+                AnalyticsWinkService.SendSubscribeOfferWindow();
+                _notifyWindowHandler.OpenWindow(WindowType.Redirect);
+            }
+
+            /*if (AdvertisementController.Instance != null && AdvertisementController.Instance.CanShowReward())
             {
                 _notifyWindowHandler.OpenWindow(WindowType.RewardContinue);
             }
             else
             {
                 SetPhone();
-                _notifyWindowHandler.OpenHelloWindowWOAccess();
+                _notifyWindowHandler.OpenHelloWindowWOAccess();*/
 
-                /*if (_winkAccessManager.Authenficated)
-                {
-                    SetPhone();
-                    _notifyWindowHandler.OpenHelloWindowWOAccess();
-                }
-                else
-                {
-                    AnalyticsWinkService.SendSubscribeOfferWindow();
-                    _notifyWindowHandler.OpenDemoExpiredWindow(false);
-                }*/
+            /*if (_winkAccessManager.Authenficated)
+            {
+                SetPhone();
+                _notifyWindowHandler.OpenHelloWindowWOAccess();
             }
+            else
+            {
+                AnalyticsWinkService.SendSubscribeOfferWindow();
+                _notifyWindowHandler.OpenDemoExpiredWindow(false);
+            }*/
+            //}
 
             DemoCompleted?.Invoke();
             _screenshotProtector.TryDisableScreenshots();

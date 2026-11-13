@@ -1,0 +1,153 @@
+#if UNITY_EDITOR
+using UnityEditor;
+using UnityEngine;
+
+namespace Agava.Wink.EditorScripts
+{
+    /// <summary>
+    ///     Editor helpers to test the paywall.
+    /// </summary>
+    internal static class PaywallTestMenu
+    {
+        private const string Root = "Tools/Wink Paywall/";
+
+        [MenuItem(Root + "Reset paywall state (new player)")]
+        private static void ResetState()
+        {
+            PaywallService.ResetSavedState();
+            UnityEngine.PlayerPrefs.DeleteKey("FirstTimeSave");
+            UnityEngine.PlayerPrefs.Save();
+            Debug.Log("#Paywall# test: paywall state and demo time reset");
+        }
+
+        [MenuItem(Root + "Forget authorization (delete tokens)")]
+        private static void ForgetAuthorization()
+        {
+            UnityEngine.PlayerPrefs.DeleteKey("Tokens");
+            UnityEngine.PlayerPrefs.Save();
+            Debug.Log("#Paywall# test: tokens deleted, the player is not authorized");
+        }
+
+        [MenuItem(Root + "Forget paywall passed")]
+        private static void ForgetPassed()
+        {
+            UnityEngine.PlayerPrefs.DeleteKey("WinkPaywallPassed");
+            UnityEngine.PlayerPrefs.Save();
+            Debug.Log("#Paywall# test: pass key deleted, the player is authorized before");
+        }
+
+        [MenuItem(Root + "Forget authorization (delete tokens)", true)]
+        private static bool ValidateForgetAuthorization() => Application.isPlaying == false;
+
+        [MenuItem(Root + "Reach paywall now")]
+        private static void ReachNow() => PaywallService.Reach();
+
+        [MenuItem(Root + "Reach paywall now", true)]
+        private static bool ValidateReachNow() => Application.isPlaying && PaywallService.IsPending;
+
+        [MenuItem(Root + "Paywall in 30 seconds of play")]
+        private static void ShortTime()
+        {
+            PaywallService.Instance.SetPlaySecondsBeforePaywall(PaywallService.Instance.PlaySeconds + 30);
+            Debug.Log("#Paywall# test: paywall in 30 seconds of play");
+        }
+
+        [MenuItem(Root + "Paywall in 30 seconds of play", true)]
+        private static bool ValidateShortTime() => Application.isPlaying && PaywallService.IsPending;
+
+        [MenuItem(Root + "Mode: trigger only (no play time)")]
+        private static void ModeTrigger()
+        {
+            PaywallService.Instance.SetMode(PaywallMode.Trigger);
+            Debug.Log("#Paywall# test: trigger mode, play time is not counted");
+        }
+
+        [MenuItem(Root + "Mode: trigger only (no play time)", true)]
+        private static bool ValidateModeTrigger() => Application.isPlaying && PaywallService.IsPending;
+
+        [MenuItem(Root + "Demo time left = 10 s")]
+        private static void DemoTenSeconds()
+        {
+            WinkSignInHandlerUI.Instance.TestSetDemoTimeLeft(10);
+            Debug.Log("#Paywall# test: demo time left = 10 s");
+        }
+
+        [MenuItem(Root + "Demo time left = 10 s", true)]
+        private static bool ValidateDemoTenSeconds() => Application.isPlaying && WinkSignInHandlerUI.Instance != null;
+
+        [MenuItem(Root + "Simulate sign in without subscription")]
+        private static void SimulateSignIn()
+        {
+            WinkAccessManager manager = WinkAccessManager.Instance;
+            typeof(WinkAccessManager).GetProperty(nameof(WinkAccessManager.Authenficated)).SetValue(manager, true);
+
+            var field = typeof(WinkAccessManager).GetField(nameof(WinkAccessManager.SignInSuccessfully),
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            (field.GetValue(manager) as System.Action<bool, bool>)?.Invoke(false, false);
+            Debug.Log("#Paywall# test: signed in without subscription (simulated, no server calls)");
+        }
+
+        [MenuItem(Root + "Simulate sign in without subscription", true)]
+        private static bool ValidateSimulateSignIn() => Application.isPlaying && WinkAccessManager.Instance != null
+            && UnityEngine.PlayerPrefs.HasKey(WinkAccessManager.Instance.PhoneNumber) && WinkAccessManager.Instance.Authenficated == false;
+
+        [MenuItem(Root + "Simulate subscription")]
+        private static void SimulateSubscription()
+        {
+            WinkAccessManager.Instance.TestEnableSubsription();
+            // The real flow closes the windows when the player finishes; here it is done by hand.
+            WinkSignInHandlerUI.Instance.CloseAllWindows();
+        }
+
+        [MenuItem(Root + "Simulate subscription", true)]
+        private static bool ValidateSimulateSubscription() => Application.isPlaying && WinkAccessManager.Instance != null;
+
+        [MenuItem(Root + "Log state")]
+        private static void LogState()
+        {
+            PaywallService paywall = PaywallService.Instance;
+
+            if (paywall == null)
+            {
+                Debug.Log($"#Paywall# state: not initialized, passed = {PaywallService.IsPassed}");
+                return;
+            }
+
+            WinkAccessManager access = WinkAccessManager.Instance;
+            WinkSignInHandlerUI ui = WinkSignInHandlerUI.Instance;
+
+            Debug.Log($"#Paywall# state: remote = {paywall.RemoteEnabled}, mode = {paywall.Mode}, pending = {paywall.Pending}, passed = {PaywallService.IsPassed}, " +
+                $"reached now = {paywall.ReachedInThisSession}, played = {paywall.PlaySeconds:0}s, left = {paywall.PlaySecondsLeft:0}s, " +
+                $"demo left = {UnityEngine.PlayerPrefs.GetString("FirstTimeSave", "-")}, " +
+                $"authenticated = {access?.Authenficated}, access = {access?.HasAccess}, temp access = {access?.HasTempAccess}, " +
+                $"window open = {ui?.IsAnyWindowEnabled}, interstitial blocked = {ui?.InterstitialDisplayBlocked}");
+        }
+
+        private static double _noInternetUntil;
+
+        [MenuItem(Root + "Simulate no internet window (5 s)")]
+        private static void SimulateNoInternet()
+        {
+            _noInternetUntil = EditorApplication.timeSinceStartup + 5;
+            EditorApplication.update -= KeepNoInternetWindow;
+            EditorApplication.update += KeepNoInternetWindow;
+            Debug.Log("#Paywall# test: no internet window for 5 s");
+        }
+
+        [MenuItem(Root + "Simulate no internet window (5 s)", true)]
+        private static bool ValidateSimulateNoInternet() => Application.isPlaying && WinkSignInHandlerUI.Instance != null;
+
+        private static void KeepNoInternetWindow()
+        {
+            if (Application.isPlaying == false || WinkSignInHandlerUI.Instance == null || EditorApplication.timeSinceStartup > _noInternetUntil)
+            {
+                EditorApplication.update -= KeepNoInternetWindow;
+                Debug.Log("#Paywall# test: no internet window simulation over");
+                return;
+            }
+
+            WinkSignInHandlerUI.Instance.OpenWindow(WindowType.NoEnternet);
+        }
+    }
+}
+#endif
